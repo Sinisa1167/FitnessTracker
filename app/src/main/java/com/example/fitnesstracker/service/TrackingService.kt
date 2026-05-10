@@ -16,6 +16,9 @@ class TrackingService : LifecycleService() {
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
+    private var timerThread: Thread? = null
+    private var startTimeMillis = 0L
+    private var timerRunning = false
 
     companion object {
         val isTracking = MutableLiveData(false)
@@ -25,17 +28,6 @@ class TrackingService : LifecycleService() {
 
         const val ACTION_START = "ACTION_START"
         const val ACTION_STOP = "ACTION_STOP"
-    }
-
-    private var startTimeMillis = 0L
-    private var timerRunning = false
-    private val timerThread = object : Thread() {
-        override fun run() {
-            while (timerRunning) {
-                elapsedSeconds.postValue((System.currentTimeMillis() - startTimeMillis) / 1000)
-                sleep(1000)
-            }
-        }
     }
 
     override fun onCreate() {
@@ -57,19 +49,27 @@ class TrackingService : LifecycleService() {
     }
 
     private fun startTracking() {
+        startForeground(1, buildNotification())
         isTracking.postValue(true)
         pathPoints.postValue(mutableListOf())
         distanceMeters.postValue(0f)
+        elapsedSeconds.postValue(0L)
         startTimeMillis = System.currentTimeMillis()
         timerRunning = true
-        timerThread.start()
-        startForeground(1, buildNotification())
+        timerThread = Thread {
+            while (timerRunning) {
+                elapsedSeconds.postValue((System.currentTimeMillis() - startTimeMillis) / 1000)
+                Thread.sleep(1000)
+            }
+        }.also { it.start() }
         requestLocationUpdates()
     }
 
     private fun stopTracking() {
-        isTracking.postValue(false)
         timerRunning = false
+        timerThread?.interrupt()
+        timerThread = null
+        isTracking.postValue(false)
         fusedLocationClient.removeLocationUpdates(locationCallback)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -96,7 +96,11 @@ class TrackingService : LifecycleService() {
         val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 2000L)
             .setMinUpdateIntervalMillis(1000L)
             .build()
-        fusedLocationClient.requestLocationUpdates(request, locationCallback, Looper.getMainLooper())
+        fusedLocationClient.requestLocationUpdates(
+            request,
+            locationCallback,
+            Looper.getMainLooper()
+        )
     }
 
     private fun buildNotification(): Notification {
