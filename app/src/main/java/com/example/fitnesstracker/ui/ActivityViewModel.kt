@@ -5,12 +5,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.fitnesstracker.data.Repository
 import com.example.fitnesstracker.data.model.Activity
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.util.*
 
 class ActivityViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -19,6 +16,7 @@ class ActivityViewModel(application: Application) : AndroidViewModel(application
     private val _searchQuery = MutableStateFlow("")
     private val _filterType = MutableStateFlow("")
 
+    // Glavna lista aktivnosti sa filterom tipa
     val activities: StateFlow<List<Activity>> = _filterType
         .flatMapLatest { type ->
             if (type.isBlank()) repository.getAll()
@@ -26,6 +24,7 @@ class ActivityViewModel(application: Application) : AndroidViewModel(application
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // Rezultati pretrage po tekstu
     val searchResults: StateFlow<List<Activity>> = _searchQuery
         .flatMapLatest { query ->
             if (query.isBlank()) repository.getAll()
@@ -33,17 +32,13 @@ class ActivityViewModel(application: Application) : AndroidViewModel(application
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // Ukupna distanca za danas - Čista reaktivna implementacija
     val todayDistance: StateFlow<Float> = repository
         .getTotalDistanceSince(startOfTodayMillis())
+        .map { it ?: 0f }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0f)
-        .let { flow ->
-            MutableStateFlow(0f).also { state ->
-                viewModelScope.launch {
-                    flow.collect { state.value = it ?: 0f }
-                }
-            }
-        }
 
+    // Broj treninga za danas
     val todayCount: StateFlow<Int> = repository
         .getCountSince(startOfTodayMillis())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
@@ -71,11 +66,11 @@ class ActivityViewModel(application: Application) : AndroidViewModel(application
     suspend fun getById(id: Long): Activity? = repository.getById(id)
 
     private fun startOfTodayMillis(): Long {
-        val cal = java.util.Calendar.getInstance()
-        cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
-        cal.set(java.util.Calendar.MINUTE, 0)
-        cal.set(java.util.Calendar.SECOND, 0)
-        cal.set(java.util.Calendar.MILLISECOND, 0)
-        return cal.timeInMillis
+        return Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
     }
 }

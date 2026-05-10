@@ -3,9 +3,11 @@ package com.example.fitnesstracker.service
 import android.app.Notification
 import android.app.PendingIntent
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.location.Location
 import android.os.Looper
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.MutableLiveData
 import com.example.fitnesstracker.FitnessApp
@@ -22,12 +24,17 @@ class TrackingService : LifecycleService() {
 
     companion object {
         val isTracking = MutableLiveData(false)
+        val isPaused = MutableLiveData(false)
+
         val pathPoints = MutableLiveData<MutableList<Location>>(mutableListOf())
         val distanceMeters = MutableLiveData(0f)
         val elapsedSeconds = MutableLiveData(0L)
+        val currentSpeedKmh = MutableLiveData(0f)
 
         const val ACTION_START = "ACTION_START"
         const val ACTION_STOP = "ACTION_STOP"
+        const val ACTION_PAUSE = "ACTION_PAUSE"
+        const val ACTION_RESUME = "ACTION_RESUME"
     }
 
     override fun onCreate() {
@@ -44,6 +51,8 @@ class TrackingService : LifecycleService() {
         when (intent?.action) {
             ACTION_START -> startTracking()
             ACTION_STOP -> stopTracking()
+            ACTION_PAUSE -> pauseTracking()
+            ACTION_RESUME -> resumeTracking()
         }
         return super.onStartCommand(intent, flags, startId)
     }
@@ -51,15 +60,48 @@ class TrackingService : LifecycleService() {
     private fun startTracking() {
         startForeground(1, buildNotification())
         isTracking.postValue(true)
+        isPaused.postValue(false)
         pathPoints.postValue(mutableListOf())
         distanceMeters.postValue(0f)
         elapsedSeconds.postValue(0L)
+
         startTimeMillis = System.currentTimeMillis()
+        timerRunning = true
+
+        timerThread = Thread {
+            while (timerRunning) {
+                elapsedSeconds.postValue((System.currentTimeMillis() - startTimeMillis) / 1000)
+                try {
+                    Thread.sleep(1000)
+                } catch (e: InterruptedException) {
+                    break
+                }
+            }
+        }.also { it.start() }
+
+        requestLocationUpdates()
+    }
+
+    private fun pauseTracking() {
+        isPaused.postValue(true)
+        currentSpeedKmh.postValue(0f)
+        timerRunning = false
+        timerThread?.interrupt()
+        timerThread = null
+        try {
+            fusedLocationClient.removeLocationUpdates(locationCallback)
+        } catch (e: Exception) {}
+    }
+
+    private fun resumeTracking() {
+        isPaused.postValue(false)
+        val pausedSeconds = elapsedSeconds.value ?: 0L
+        startTimeMillis = System.currentTimeMillis() - (pausedSeconds * 1000L)
         timerRunning = true
         timerThread = Thread {
             while (timerRunning) {
                 elapsedSeconds.postValue((System.currentTimeMillis() - startTimeMillis) / 1000)
-                Thread.sleep(1000)
+                try { Thread.sleep(1000) } catch (e: InterruptedException) { break }
             }
         }.also { it.start() }
         requestLocationUpdates()
@@ -70,7 +112,13 @@ class TrackingService : LifecycleService() {
         timerThread?.interrupt()
         timerThread = null
         isTracking.postValue(false)
-        fusedLocationClient.removeLocationUpdates(locationCallback)
+        isPaused.postValue(false)
+        currentSpeedKmh.postValue(0f)
+        try {
+            fusedLocationClient.removeLocationUpdates(locationCallback)
+        } catch (e: Exception) {
+            // Ignorišemo ako nije ni bio pokrenut
+        }
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -87,34 +135,60 @@ class TrackingService : LifecycleService() {
             )
             distanceMeters.postValue((distanceMeters.value ?: 0f) + result[0])
         }
+        val speedKmh = if (location.hasSpeed()) location.speed * 3.6f else 0f
+        currentSpeedKmh.postValue(speedKmh)
         points.add(location)
         pathPoints.postValue(points)
     }
 
-    @SuppressWarnings("MissingPermission")
     private fun requestLocationUpdates() {
-        val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 2000L)
+        val hasFineLocation = ContextCompat.checkSelfPermission(
+            this, android.Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        val hasCoarseLocation = ContextCompat.checkSelfPermission(
+            this, android.Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        // Ako nemamo nikakvu dozvolu, samo logujemo i izlazimo iz funkcije (tajmer nastavlja raditi)
+        if (!hasFineLocation && !hasCoarseLocation) {
+            android.util.Log.w("TrackingService", "Trening pokrenut bez GPS dozvola.")
+            return
+        }
+
+        val priority = if (hasFineLocation)
+            Priority.PRIORITY_HIGH_ACCURACY
+        else
+            Priority.PRIORITY_BALANCED_POWER_ACCURACY
+
+        val request = LocationRequest.Builder(priority, 2000L)
             .setMinUpdateIntervalMillis(1000L)
             .build()
-        fusedLocationClient.requestLocationUpdates(
-            request,
-            locationCallback,
-            Looper.getMainLooper()
-        )
+
+        try {
+            fusedLocationClient.requestLocationUpdates(
+                request,
+                locationCallback,
+                Looper.getMainLooper()
+            )
+        } catch (e: SecurityException) {
+            android.util.Log.e("TrackingService", "SecurityException: ${e.message}")
+        }
     }
 
     private fun buildNotification(): Notification {
         val pendingIntent = PendingIntent.getActivity(
             this, 0,
             Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         return NotificationCompat.Builder(this, FitnessApp.CHANNEL_TRACKING)
-            .setContentTitle("Praćenje aktivnosti")
-            .setContentText("Aktivnost je u toku...")
+            .setContentTitle("Trening u toku")
+            .setContentText("Mjerimo vaše rezultate...")
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
+            .setSilent(true)
             .build()
     }
 }

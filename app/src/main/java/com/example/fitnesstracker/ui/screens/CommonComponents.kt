@@ -3,6 +3,9 @@ package com.example.fitnesstracker.ui.screens
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsBike
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -55,9 +58,11 @@ fun ActivityCard(activity: Activity, onClick: () -> Unit) {
 }
 
 fun activityIcon(type: String) = when (type.lowercase()) {
-    "trčanje" -> Icons.Default.DirectionsRun
-    "hodanje" -> Icons.Default.DirectionsWalk
-    "biciklizam" -> Icons.Default.DirectionsBike
+    "trčanje" -> Icons.AutoMirrored.Filled.DirectionsRun
+    "trcanje" -> Icons.AutoMirrored.Filled.DirectionsRun
+    "hodanje" -> Icons.AutoMirrored.Filled.DirectionsWalk
+    "plivanje" -> Icons.Default.Pool
+    "biciklizam" -> Icons.AutoMirrored.Filled.DirectionsBike
     else -> Icons.Default.FitnessCenter
 }
 
