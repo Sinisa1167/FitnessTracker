@@ -67,6 +67,7 @@ dependencies {
     implementation(libs.vico.compose.m3)
 
     implementation(libs.play.services.location)
+    implementation("androidx.compose.runtime:runtime-livedata:1.7.6")
 
     implementation(libs.androidx.work)
     implementation(libs.androidx.datastore)
