@@ -23,33 +23,33 @@ import com.example.fitnesstracker.ui.ActivityViewModel
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
-    val activities by viewModel.activities.collectAsState()
+    val activities    by viewModel.activities.collectAsState()
     val searchResults by viewModel.searchResults.collectAsState()
+    val units         by viewModel.units.collectAsState()
+    val useKm          = units == "km"
 
-    var searchQuery by remember { mutableStateOf("") }
-    var selectedFilter by remember { mutableStateOf("") }
-    var showFilterMenu by remember { mutableStateOf(false) }
-    var selectedIds by remember { mutableStateOf(emptySet<Long>()) }
+    var searchQuery      by remember { mutableStateOf("") }
+    var selectedFilter   by remember { mutableStateOf("") }
+    var showFilterMenu   by remember { mutableStateOf(false) }
+    var selectedIds      by remember { mutableStateOf(emptySet<Long>()) }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     val isSelectionMode = selectedIds.isNotEmpty()
-    val activityTypes = listOf("", "Trčanje", "Hodanje", "Biciklizam", "Plivanje", "Ostalo")
-    val displayList = if (searchQuery.isNotBlank()) searchResults else activities
-    val allSelected = displayList.isNotEmpty() && selectedIds.containsAll(displayList.map { it.id })
+    val activityTypes   = listOf("", "Trčanje", "Hodanje", "Biciklizam", "Plivanje", "Ostalo")
+    val displayList     = if (searchQuery.isNotBlank()) searchResults else activities
+    val allSelected     = displayList.isNotEmpty() && selectedIds.containsAll(displayList.map { it.id })
 
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            icon = { Icon(Icons.Default.Delete, contentDescription = null) },
-            title = { Text("Obriši aktivnosti") },
-            text = { Text("Da li ste sigurni da želite obrisati ${selectedIds.size} aktivnost(i)?") },
+            icon    = { Icon(Icons.Default.Delete, contentDescription = null) },
+            title   = { Text("Obriši aktivnosti") },
+            text    = { Text("Da li ste sigurni da želite obrisati ${selectedIds.size} aktivnost(i)?") },
             confirmButton = {
                 Button(
                     onClick = {
-                        displayList
-                            .filter { it.id in selectedIds }
-                            .forEach { viewModel.deleteActivity(it) }
-                        selectedIds = emptySet()
+                        displayList.filter { it.id in selectedIds }.forEach { viewModel.deleteActivity(it) }
+                        selectedIds      = emptySet()
                         showDeleteDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
@@ -62,98 +62,69 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        modifier            = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Istorija", style = MaterialTheme.typography.headlineMedium)
 
         AnimatedContent(
-            targetState = isSelectionMode,
+            targetState  = isSelectionMode,
             transitionSpec = { fadeIn() togetherWith fadeOut() },
-            label = "searchOrSelection"
+            label        = "searchOrSelection"
         ) { selectionMode ->
             if (selectionMode) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier              = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment     = Alignment.CenterVertically
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         IconButton(onClick = { selectedIds = emptySet() }) {
                             Icon(Icons.Default.Close, contentDescription = "Otkaži selekciju")
                         }
-                        Text(
-                            "${selectedIds.size} odabrano",
-                            style = MaterialTheme.typography.titleMedium
-                        )
+                        Text("${selectedIds.size} odabrano", style = MaterialTheme.typography.titleMedium)
                     }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        TextButton(
-                            onClick = {
-                                selectedIds = if (allSelected) emptySet()
-                                else displayList.map { it.id }.toSet()
-                            }
-                        ) { Text(if (allSelected) "Poništi sve" else "Sve") }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        TextButton(onClick = {
+                            selectedIds = if (allSelected) emptySet() else displayList.map { it.id }.toSet()
+                        }) { Text(if (allSelected) "Poništi sve" else "Sve") }
                         IconButton(onClick = { showDeleteDialog = true }) {
-                            Icon(
-                                Icons.Default.Delete,
-                                contentDescription = "Obriši odabrane",
-                                tint = MaterialTheme.colorScheme.error
-                            )
+                            Icon(Icons.Default.Delete, contentDescription = "Obriši odabrane", tint = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier              = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment     = Alignment.CenterVertically
                     ) {
                         OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = {
-                                searchQuery = it
-                                viewModel.setSearch(it)
-                            },
-                            placeholder = { Text("Pretraži...") },
-                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                            trailingIcon = {
+                            value         = searchQuery,
+                            onValueChange = { searchQuery = it; viewModel.setSearch(it) },
+                            placeholder   = { Text("Pretraži...") },
+                            leadingIcon   = { Icon(Icons.Default.Search, contentDescription = null) },
+                            trailingIcon  = {
                                 if (searchQuery.isNotBlank()) {
-                                    IconButton(onClick = {
-                                        searchQuery = ""
-                                        viewModel.setSearch("")
-                                    }) {
+                                    IconButton(onClick = { searchQuery = ""; viewModel.setSearch("") }) {
                                         Icon(Icons.Default.Clear, contentDescription = null)
                                     }
                                 }
                             },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true
+                            modifier    = Modifier.weight(1f),
+                            singleLine  = true
                         )
                         Box {
                             IconButton(onClick = { showFilterMenu = true }) {
                                 Icon(
                                     Icons.Default.FilterList,
                                     contentDescription = "Filter",
-                                    tint = if (selectedFilter.isNotBlank())
-                                        MaterialTheme.colorScheme.primary
-                                    else
-                                        MaterialTheme.colorScheme.onSurface
+                                    tint = if (selectedFilter.isNotBlank()) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurface
                                 )
                             }
-                            DropdownMenu(
-                                expanded = showFilterMenu,
-                                onDismissRequest = { showFilterMenu = false }
-                            ) {
+                            DropdownMenu(expanded = showFilterMenu, onDismissRequest = { showFilterMenu = false }) {
                                 activityTypes.forEach { type ->
                                     DropdownMenuItem(
                                         text = { Text(if (type.isBlank()) "Sve aktivnosti" else type) },
@@ -163,9 +134,7 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                                             showFilterMenu = false
                                         },
                                         leadingIcon = {
-                                            if (selectedFilter == type) {
-                                                Icon(Icons.Default.Check, contentDescription = null)
-                                            }
+                                            if (selectedFilter == type) Icon(Icons.Default.Check, contentDescription = null)
                                         }
                                     )
                                 }
@@ -174,19 +143,10 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                     }
                     if (selectedFilter.isNotBlank()) {
                         FilterChip(
-                            selected = true,
-                            onClick = {
-                                selectedFilter = ""
-                                viewModel.setFilter("")
-                            },
-                            label = { Text(selectedFilter) },
-                            trailingIcon = {
-                                Icon(
-                                    Icons.Default.Close,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
+                            selected     = true,
+                            onClick      = { selectedFilter = ""; viewModel.setFilter("") },
+                            label        = { Text(selectedFilter) },
+                            trailingIcon = { Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp)) }
                         )
                     }
                 }
@@ -194,25 +154,10 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
         }
 
         if (displayList.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        Icons.Default.History,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        "Nema aktivnosti",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Nema aktivnosti", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         } else {
@@ -220,17 +165,14 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                 items(displayList, key = { it.id }) { activity ->
                     val isSelected = activity.id in selectedIds
                     SelectableActivityCard(
-                        activity = activity,
-                        isSelected = isSelected,
+                        activity        = activity,
+                        useKm           = useKm,
+                        isSelected      = isSelected,
                         isSelectionMode = isSelectionMode,
-                        onLongClick = { selectedIds = selectedIds + activity.id },
-                        onClick = {
+                        onLongClick     = { selectedIds = selectedIds + activity.id },
+                        onClick         = {
                             if (isSelectionMode) {
-                                selectedIds = if (isSelected) {
-                                    selectedIds - activity.id
-                                } else {
-                                    selectedIds + activity.id
-                                }
+                                selectedIds = if (isSelected) selectedIds - activity.id else selectedIds + activity.id
                             } else {
                                 navController.navigate("detail/${activity.id}")
                             }
@@ -246,6 +188,7 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
 @Composable
 fun SelectableActivityCard(
     activity: Activity,
+    useKm: Boolean = true,
     isSelected: Boolean,
     isSelectionMode: Boolean,
     onLongClick: () -> Unit,
@@ -254,35 +197,30 @@ fun SelectableActivityCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick
-            ),
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected)
-                MaterialTheme.colorScheme.primaryContainer
-            else
-                MaterialTheme.colorScheme.surface
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer
+            else            MaterialTheme.colorScheme.surface
         )
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            modifier              = Modifier.padding(16.dp),
+            verticalAlignment     = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             AnimatedContent(
-                targetState = isSelectionMode,
+                targetState    = isSelectionMode,
                 transitionSpec = { fadeIn() togetherWith fadeOut() },
-                label = "cardLeading"
+                label          = "cardLeading"
             ) { selectionMode ->
                 if (selectionMode) {
                     Checkbox(checked = isSelected, onCheckedChange = null)
                 } else {
                     Icon(
-                        imageVector = activityIcon(activity.type),
+                        imageVector        = activityIcon(activity.type),
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(32.dp)
+                        tint               = MaterialTheme.colorScheme.primary,
+                        modifier           = Modifier.size(32.dp)
                     )
                 }
             }
@@ -297,10 +235,7 @@ fun SelectableActivityCard(
             }
 
             Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    "%.1f km".format(activity.distanceMeters / 1000f),
-                    style = MaterialTheme.typography.titleMedium
-                )
+                Text(formatDistance(activity.distanceMeters, useKm), style = MaterialTheme.typography.titleMedium)
                 Text(
                     formatDuration(activity.durationSeconds),
                     style = MaterialTheme.typography.bodySmall,

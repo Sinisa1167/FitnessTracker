@@ -22,10 +22,13 @@ data class TypeDayStat(
 class ActivityViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = Repository(application)
-    private val prefs = PreferencesManager(application)
+    private val prefs      = PreferencesManager(application)
 
     private val _searchQuery = MutableStateFlow("")
     private val _filterType  = MutableStateFlow("")
+
+    val units: StateFlow<String> = prefs.units
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "km")
 
     val activities: StateFlow<List<Activity>> = _filterType
         .flatMapLatest { type ->
@@ -52,9 +55,8 @@ class ActivityViewModel(application: Application) : AndroidViewModel(application
         repository.getAll(),
         prefs.allGoals
     ) { all, goals ->
-        val todayStart = startOfTodayMillis()
+        val todayStart      = startOfTodayMillis()
         val todayActivities = all.filter { it.timestamp >= todayStart }
-
         DEFAULT_GOALS.keys.map { type ->
             val typeActivities = todayActivities.filter { it.type == type }
             TypeDayStat(
@@ -70,7 +72,10 @@ class ActivityViewModel(application: Application) : AndroidViewModel(application
     fun setSearch(query: String) { _searchQuery.value = query }
 
     fun saveActivity(activity: Activity) {
-        viewModelScope.launch { repository.insert(activity) }
+        viewModelScope.launch {
+            repository.insert(activity)
+            prefs.recordActivityCompleted(getApplication())
+        }
     }
 
     fun deleteActivity(activity: Activity) {

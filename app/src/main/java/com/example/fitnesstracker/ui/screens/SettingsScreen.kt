@@ -90,7 +90,7 @@ fun SettingsScreen() {
                 Column {
                     Text("Podsjetnici za aktivnost", style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        "Obavijesti ako nisi aktivan 2 sata",
+                        "Obavijesti ako nisi aktivan duže vrijeme",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -139,7 +139,7 @@ fun SettingsScreen() {
                             Text("Ciljna udaljenost", style = MaterialTheme.typography.bodyLarge)
                         }
                         Text(
-                            "%.0f km".format(currentGoal.distanceKm),
+                            "%.0f km (%.0f mi)".format(currentGoal.distanceKm, currentGoal.distanceKm * 0.621371f),
                             style      = MaterialTheme.typography.titleMedium,
                             color      = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold

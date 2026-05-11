@@ -31,6 +31,9 @@ fun ActivityDetailScreen(
     navController: NavController
 ) {
     val context = LocalContext.current
+    val units   by viewModel.units.collectAsState()
+    val useKm    = units == "km"
+
     var activity by remember { mutableStateOf<com.example.fitnesstracker.data.model.Activity?>(null) }
 
     LaunchedEffect(activityId) {
@@ -38,86 +41,56 @@ fun ActivityDetailScreen(
     }
 
     activity?.let { act ->
-        val gpsPoints = parseGpsPoints(act.gpsPoints)
+        val gpsPoints     = parseGpsPoints(act.gpsPoints)
         val activityColor = getActivityColor(act.type)
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-        ) {
+        Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             TopBar(
-                title = act.type,
-                onBack = { navController.popBackStack() },
-                onDelete = {
-                    viewModel.deleteActivity(act)
-                    navController.popBackStack()
-                }
+                title    = act.type,
+                onBack   = { navController.popBackStack() },
+                onDelete = { viewModel.deleteActivity(act); navController.popBackStack() }
             )
 
             if (gpsPoints.isNotEmpty()) {
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(280.dp)
-                        .padding(16.dp),
-                    shape = RoundedCornerShape(24.dp),
+                    modifier  = Modifier.fillMaxWidth().height(280.dp).padding(16.dp),
+                    shape     = RoundedCornerShape(24.dp),
                     elevation = CardDefaults.cardElevation(4.dp)
                 ) {
                     OsmMapView(context = context, gpsPoints = gpsPoints, routeColor = activityColor)
                 }
             } else {
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(150.dp)
-                        .padding(16.dp),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                    )
+                    modifier = Modifier.fillMaxWidth().height(150.dp).padding(16.dp),
+                    shape    = RoundedCornerShape(24.dp),
+                    colors   = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                 ) {
                     Column(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier            = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.LocationOff,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(40.dp)
-                        )
+                        Icon(Icons.Default.LocationOff, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(40.dp))
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Mapa nije dostupna za ovu aktivnost",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Text("Mapa nije dostupna za ovu aktivnost", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
 
             Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                shape = RoundedCornerShape(24.dp)
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                shape    = RoundedCornerShape(24.dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
+                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text("Statistika", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
 
-                    // Glavni podaci u Gridu (2x2)
                     Row(Modifier.fillMaxWidth()) {
                         DetailItem(Modifier.weight(1f), Icons.Default.Timer, "Trajanje", formatDuration(act.durationSeconds))
-                        DetailItem(Modifier.weight(1f), Icons.Default.Route, "Udaljenost", "%.2f km".format(act.distanceMeters / 1000f))
+                        DetailItem(Modifier.weight(1f), Icons.Default.Route, "Udaljenost", formatDistance(act.distanceMeters, useKm))
                     }
                     Row(Modifier.fillMaxWidth()) {
-                        DetailItem(Modifier.weight(1f), Icons.Default.Speed, "Brzina", "%.1f km/h".format(act.avgSpeedKmh))
+                        DetailItem(Modifier.weight(1f), Icons.Default.Speed, "Brzina", formatSpeed(act.avgSpeedKmh, useKm))
                         DetailItem(Modifier.weight(1f), Icons.Default.CalendarToday, "Datum", formatDate(act.timestamp).split(" ")[0])
                     }
 
@@ -137,8 +110,8 @@ fun ActivityDetailScreen(
 @Composable
 fun DetailItem(modifier: Modifier, icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String) {
     Row(
-        modifier = modifier.padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        modifier              = modifier.padding(vertical = 4.dp),
+        verticalAlignment     = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
@@ -148,8 +121,6 @@ fun DetailItem(modifier: Modifier, icon: androidx.compose.ui.graphics.vector.Ima
         }
     }
 }
-
-// --- OSTALE POMOĆNE FUNKCIJE OSTALE SKORO ISTO, SAMO OSM-MAPA DOBIJA BOJU ---
 
 @Composable
 fun OsmMapView(context: Context, gpsPoints: List<GeoPoint>, routeColor: Color) {
@@ -164,9 +135,9 @@ fun OsmMapView(context: Context, gpsPoints: List<GeoPoint>, routeColor: Color) {
                     setPoints(gpsPoints)
                     outlinePaint.color = android.graphics.Color.argb(
                         (routeColor.alpha * 255).toInt(),
-                        (routeColor.red * 255).toInt(),
+                        (routeColor.red   * 255).toInt(),
                         (routeColor.green * 255).toInt(),
-                        (routeColor.blue * 255).toInt()
+                        (routeColor.blue  * 255).toInt()
                     )
                     outlinePaint.strokeWidth = 12f
                 }
@@ -181,7 +152,6 @@ fun OsmMapView(context: Context, gpsPoints: List<GeoPoint>, routeColor: Color) {
     )
 }
 
-// Zadrži svoj TopBar, DetailRow i parseGpsPoints od ranije
 @Composable
 fun TopBar(title: String, onBack: () -> Unit, onDelete: () -> Unit) {
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -189,21 +159,14 @@ fun TopBar(title: String, onBack: () -> Unit, onDelete: () -> Unit) {
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Obriši aktivnost") },
-            text = { Text("Da li ste sigurni?") },
-            confirmButton = {
-                TextButton(onClick = onDelete) { Text("Obriši", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) { Text("Odustani") }
-            }
+            title            = { Text("Obriši aktivnost") },
+            text             = { Text("Da li ste sigurni?") },
+            confirmButton    = { TextButton(onClick = onDelete) { Text("Obriši", color = MaterialTheme.colorScheme.error) } },
+            dismissButton    = { TextButton(onClick = { showDeleteDialog = false }) { Text("Odustani") } }
         )
     }
 
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Nazad") }
         Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)
         IconButton(onClick = { showDeleteDialog = true }) {

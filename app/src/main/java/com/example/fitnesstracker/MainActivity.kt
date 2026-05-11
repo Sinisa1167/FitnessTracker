@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -39,7 +40,6 @@ import com.example.fitnesstracker.worker.ReminderWorker
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        ReminderWorker.schedule(this)
         setContent {
             FitnessTrackerTheme {
                 val navController = rememberNavController()
@@ -64,7 +64,14 @@ class MainActivity : ComponentActivity() {
                                 bottomNavItems.forEach { (route, icon, label) ->
                                     NavigationBarItem(
                                         icon = { Icon(icon, contentDescription = label) },
-                                        label = { Text(label) },
+                                        label = {
+                                            Text(
+                                                text = label,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                maxLines = 1,
+                                                softWrap = false
+                                            )
+                                        },
                                         selected = currentDestination?.hierarchy?.any { it.route == route } == true,
                                         onClick = {
                                             navController.navigate(route) {

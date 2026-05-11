@@ -17,7 +17,7 @@ class ReminderWorker(context: Context, params: WorkerParameters) : CoroutineWork
     private fun sendReminderNotification() {
         val notification = NotificationCompat.Builder(applicationContext, FitnessApp.CHANNEL_REMINDER)
             .setContentTitle("Vrijeme za aktivnost!")
-            .setContentText("Nisi bio aktivan duže vrijeme. Hajde na trening!")
+            .setContentText("Nisi bio aktivan duže od 48 sati. Hajde na trening!")
             .setSmallIcon(android.R.drawable.ic_menu_compass)
             .setAutoCancel(true)
             .build()
@@ -27,15 +27,35 @@ class ReminderWorker(context: Context, params: WorkerParameters) : CoroutineWork
     }
 
     companion object {
-        private const val WORK_NAME = "reminder_work"
+        private const val WORK_NAME      = "reminder_work"
+        private const val DELAY_HOURS    = 48L
 
-        fun schedule(context: Context) {
-            val request = PeriodicWorkRequestBuilder<ReminderWorker>(2, TimeUnit.HOURS)
+        fun scheduleFromNow(context: Context) {
+            val request = OneTimeWorkRequestBuilder<ReminderWorker>()
+                .setInitialDelay(DELAY_HOURS, TimeUnit.HOURS)
                 .setConstraints(Constraints.Builder().build())
                 .build()
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+
+            WorkManager.getInstance(context).enqueueUniqueWork(
                 WORK_NAME,
-                ExistingPeriodicWorkPolicy.KEEP,
+                ExistingWorkPolicy.REPLACE,
+                request
+            )
+        }
+
+        fun scheduleWithDelay(context: Context, delayMillis: Long) {
+            if (delayMillis <= 0L) {
+                scheduleFromNow(context)
+                return
+            }
+            val request = OneTimeWorkRequestBuilder<ReminderWorker>()
+                .setInitialDelay(delayMillis, TimeUnit.MILLISECONDS)
+                .setConstraints(Constraints.Builder().build())
+                .build()
+
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                WORK_NAME,
+                ExistingWorkPolicy.REPLACE,
                 request
             )
         }

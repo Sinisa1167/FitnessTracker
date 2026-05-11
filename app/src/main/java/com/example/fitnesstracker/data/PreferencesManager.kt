@@ -4,9 +4,11 @@ import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "settings")
@@ -24,17 +26,19 @@ val DEFAULT_GOALS = mapOf(
 class PreferencesManager(private val context: Context) {
 
     companion object {
-        val KEY_LANGUAGE      = stringPreferencesKey("language")
-        val KEY_UNITS         = stringPreferencesKey("units")
-        val KEY_NOTIFICATIONS = booleanPreferencesKey("notifications")
+        val KEY_LANGUAGE              = stringPreferencesKey("language")
+        val KEY_UNITS                 = stringPreferencesKey("units")
+        val KEY_NOTIFICATIONS         = booleanPreferencesKey("notifications")
+        val KEY_LAST_ACTIVITY_TIME    = longPreferencesKey("last_activity_timestamp")
 
         fun goalDistanceKey(type: String) = floatPreferencesKey("goal_distance_$type")
         fun goalDurationKey(type: String) = floatPreferencesKey("goal_duration_$type")
     }
 
-    val language: Flow<String> = context.dataStore.data.map { it[KEY_LANGUAGE] ?: "sr" }
-    val units: Flow<String>    = context.dataStore.data.map { it[KEY_UNITS] ?: "km" }
+    val language: Flow<String>          = context.dataStore.data.map { it[KEY_LANGUAGE] ?: "sr" }
+    val units: Flow<String>             = context.dataStore.data.map { it[KEY_UNITS] ?: "km" }
     val notificationsEnabled: Flow<Boolean> = context.dataStore.data.map { it[KEY_NOTIFICATIONS] ?: true }
+    val lastActivityTimestamp: Flow<Long>   = context.dataStore.data.map { it[KEY_LAST_ACTIVITY_TIME] ?: 0L }
 
     fun goalForType(type: String): Flow<ActivityGoal> = context.dataStore.data.map { prefs ->
         val default = DEFAULT_GOALS[type] ?: ActivityGoal(5f, 30f)
@@ -64,7 +68,7 @@ class PreferencesManager(private val context: Context) {
 
     suspend fun setNotifications(enabled: Boolean) {
         context.dataStore.edit { it[KEY_NOTIFICATIONS] = enabled }
-        if (enabled) com.example.fitnesstracker.worker.ReminderWorker.schedule(context)
+        if (enabled) com.example.fitnesstracker.worker.ReminderWorker.scheduleFromNow(context)
         else         com.example.fitnesstracker.worker.ReminderWorker.cancel(context)
     }
 
@@ -75,4 +79,15 @@ class PreferencesManager(private val context: Context) {
     suspend fun setGoalDuration(type: String, value: Float) {
         context.dataStore.edit { it[goalDurationKey(type)] = value }
     }
+
+    suspend fun recordActivityCompleted(context: Context) {
+        context.dataStore.edit { it[KEY_LAST_ACTIVITY_TIME] = System.currentTimeMillis() }
+        val notificationsOn = notificationsEnabled.first()
+        if (notificationsOn) {
+            com.example.fitnesstracker.worker.ReminderWorker.scheduleFromNow(context)
+        }
+    }
+
+    suspend fun getLastActivityTimestamp(): Long =
+        context.dataStore.data.first()[KEY_LAST_ACTIVITY_TIME] ?: 0L
 }

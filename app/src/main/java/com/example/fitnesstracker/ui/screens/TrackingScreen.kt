@@ -24,7 +24,6 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,24 +39,32 @@ import com.example.fitnesstracker.ui.ActivityViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
-    val context = LocalContext.current
-    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    val context        = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    val isTracking by TrackingService.isTracking.observeAsState(false)
-    val isPaused by TrackingService.isPaused.observeAsState(false)
-    val distanceMeters by TrackingService.distanceMeters.observeAsState(0f)
-    val elapsedSeconds by TrackingService.elapsedSeconds.observeAsState(0L)
+    val isTracking      by TrackingService.isTracking.observeAsState(false)
+    val isPaused        by TrackingService.isPaused.observeAsState(false)
+    val distanceMeters  by TrackingService.distanceMeters.observeAsState(0f)
+    val elapsedSeconds  by TrackingService.elapsedSeconds.observeAsState(0L)
     val currentSpeedKmh by TrackingService.currentSpeedKmh.observeAsState(0f)
+    val units           by viewModel.units.collectAsState()
+    val useKm            = units == "km"
+
     val avgSpeedKmh = if (elapsedSeconds > 0) (distanceMeters / 1000f) / (elapsedSeconds / 3600f) else 0f
 
-    var selectedType by remember { mutableStateOf("Trčanje") }
-    var description by remember { mutableStateOf("") }
-    var showSaveDialog by remember { mutableStateOf(false) }
-    var expanded by remember { mutableStateOf(false) }
-    var showPermissionDialog by remember { mutableStateOf(false) }
+    val distanceDisplay = if (useKm) distanceMeters / 1000f else distanceMeters / 1609f
+    val distanceUnit    = if (useKm) "KM" else "MI"
+    val speedUnit       = if (useKm) "km/h" else "mph"
+    val currentSpeed    = if (useKm) currentSpeedKmh else currentSpeedKmh * 0.621371f
+    val avgSpeed        = if (useKm) avgSpeedKmh else avgSpeedKmh * 0.621371f
+
+    var selectedType                  by remember { mutableStateOf("Trčanje") }
+    var description                   by remember { mutableStateOf("") }
+    var showSaveDialog                by remember { mutableStateOf(false) }
+    var showPermissionDialog          by remember { mutableStateOf(false) }
     var showLocationExplanationDialog by remember { mutableStateOf(false) }
 
-    val activityTypes = listOf("Trčanje", "Hodanje", "Biciklizam", "Plivanje", "Ostalo")
+    val activityTypes   = listOf("Trčanje", "Hodanje", "Biciklizam", "Plivanje", "Ostalo")
     val locationManager = remember { context.getSystemService(Context.LOCATION_SERVICE) as LocationManager }
 
     var isLocationEnabled by remember {
@@ -75,9 +82,9 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
     }
 
     val startButtonColor by animateColorAsState(
-        targetValue = MaterialTheme.colorScheme.primary,
+        targetValue   = MaterialTheme.colorScheme.primary,
         animationSpec = tween(500),
-        label = "startBtnColor"
+        label         = "startBtnColor"
     )
 
     val notificationLauncher = rememberLauncherForActivityResult(
@@ -87,19 +94,16 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
     val locationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { perms ->
-        if (perms.values.all { it }) {
-            checkNotificationsAndStart(context, notificationLauncher)
-        } else {
-            showPermissionDialog = true
-        }
+        if (perms.values.all { it }) checkNotificationsAndStart(context, notificationLauncher)
+        else showPermissionDialog = true
     }
 
     if (showLocationExplanationDialog) {
         AlertDialog(
             onDismissRequest = { showLocationExplanationDialog = false },
-            icon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
-            title = { Text("Lokacija isključena") },
-            text = { Text("Bez GPS-a nećemo moći mjeriti distancu i rutu, već samo trajanje treninga. Želite li ipak uključiti GPS?") },
+            icon    = { Icon(Icons.Default.LocationOn, contentDescription = null) },
+            title   = { Text("Lokacija isključena") },
+            text    = { Text("Bez GPS-a nećemo moći mjeriti distancu i rutu, već samo trajanje treninga. Želite li ipak uključiti GPS?") },
             confirmButton = {
                 Button(onClick = {
                     showLocationExplanationDialog = false
@@ -119,7 +123,7 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
         AlertDialog(
             onDismissRequest = { showPermissionDialog = false },
             title = { Text("Dozvola za lokaciju") },
-            text = { Text("Aplikacija koristi lokaciju za precizno praćenje. Možete je omogućiti u podešavanjima ili nastaviti bez nje.") },
+            text  = { Text("Aplikacija koristi lokaciju za precizno praćenje. Možete je omogućiti u podešavanjima ili nastaviti bez nje.") },
             confirmButton = {
                 Button(onClick = {
                     showPermissionDialog = false
@@ -141,15 +145,15 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
         AlertDialog(
             onDismissRequest = { showSaveDialog = false },
             title = { Text("Sačuvaj aktivnost") },
-            text = {
+            text  = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Trajanje: ${formatDuration(elapsedSeconds)}")
-                    Text("Udaljenost: ${"%.2f km".format(distanceMeters / 1000f)}")
+                    Text("Udaljenost: ${"%.2f %s".format(distanceDisplay, if (useKm) "km" else "mi")}")
                     OutlinedTextField(
-                        value = description,
+                        value         = description,
                         onValueChange = { description = it },
-                        label = { Text("Opis") },
-                        modifier = Modifier.fillMaxWidth()
+                        label         = { Text("Opis") },
+                        modifier      = Modifier.fillMaxWidth()
                     )
                 }
             },
@@ -161,13 +165,13 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
                         ?: ""
                     viewModel.saveActivity(
                         Activity(
-                            type = selectedType,
+                            type            = selectedType,
                             durationSeconds = elapsedSeconds,
-                            distanceMeters = distanceMeters,
-                            timestamp = System.currentTimeMillis(),
-                            description = description,
-                            avgSpeedKmh = avgSpeed,
-                            gpsPoints = gpsPoints
+                            distanceMeters  = distanceMeters,
+                            timestamp       = System.currentTimeMillis(),
+                            description     = description,
+                            avgSpeedKmh     = avgSpeed,
+                            gpsPoints       = gpsPoints
                         )
                     )
                     showSaveDialog = false
@@ -183,7 +187,7 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
     }
 
     Column(
-        modifier = Modifier
+        modifier            = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
@@ -191,120 +195,87 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
     ) {
         Text(
             text = when {
-                isPaused -> "Trening pauziran"
+                isPaused   -> "Trening pauziran"
                 isTracking -> "Trening u toku"
-                else -> "Novi trening"
+                else       -> "Novi trening"
             },
-            style = MaterialTheme.typography.headlineMedium,
+            style      = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold
         )
 
         AnimatedVisibility(visible = !isLocationEnabled && !isTracking) {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.LocationOff, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
                     Text(
                         "GPS je isključen. Distanca neće biti mjerena.",
                         modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.bodySmall
+                        style    = MaterialTheme.typography.bodySmall
                     )
                 }
             }
         }
 
         AnimatedVisibility(visible = isPaused) {
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer
-                )
-            ) {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                    modifier              = Modifier.fillMaxWidth().padding(12.dp),
+                    verticalAlignment     = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    Icon(
-                        Icons.Default.Pause,
-                        contentDescription = null,
-                        modifier = Modifier.padding(end = 8.dp),
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                    Text(
-                        "Trening je pauziran",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
+                    Icon(Icons.Default.Pause, contentDescription = null, modifier = Modifier.padding(end = 8.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                    Text("Trening je pauziran", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSecondaryContainer)
                 }
             }
         }
 
         if (!isTracking) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Red sa naslovom i indikatorom strelica
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    modifier              = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment     = Alignment.CenterVertically
                 ) {
-                    Text(
-                        "Odaberi aktivnost",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    // Mala ikona koja suptilno sugeriše da postoji još opcija desno
+                    Text("Odaberi aktivnost", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Icon(
-                        imageVector = Icons.Default.SwapHoriz,
+                        imageVector        = Icons.Default.SwapHoriz,
                         contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        modifier           = Modifier.size(16.dp),
+                        tint               = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
                 }
 
                 androidx.compose.foundation.lazy.LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(horizontal = 4.dp)
+                    contentPadding        = PaddingValues(horizontal = 4.dp)
                 ) {
                     items(activityTypes.size) { index ->
-                        val type = activityTypes[index]
+                        val type       = activityTypes[index]
                         val isSelected = selectedType == type
-                        val color = getActivityColor(type) // Tvoja funkcija iz CommonComponents
+                        val color      = getActivityColor(type)
 
                         FilterChip(
-                            selected = isSelected,
-                            onClick = { selectedType = type },
-                            label = {
-                                Text(
-                                    type,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                )
-                            },
-                            // Maknuta kvačica (leadingIcon je sad uvijek ikonica sporta)
+                            selected    = isSelected,
+                            onClick     = { selectedType = type },
+                            label       = { Text(type, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
                             leadingIcon = {
                                 Icon(
-                                    imageVector = activityIcon(type),
+                                    imageVector        = activityIcon(type),
                                     contentDescription = null,
-                                    modifier = Modifier.size(18.dp),
-                                    // Ikonica mijenja boju u tvoju definisanu boju kad je selektovana
-                                    tint = if (isSelected) color else MaterialTheme.colorScheme.onSurfaceVariant
+                                    modifier           = Modifier.size(18.dp),
+                                    tint               = if (isSelected) color else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             },
                             colors = FilterChipDefaults.filterChipColors(
-                                // Pozadina čipa postaje blaga varijanta tvoje boje
                                 selectedContainerColor = color.copy(alpha = 0.15f),
-                                selectedLabelColor = color
+                                selectedLabelColor     = color
                             ),
                             border = FilterChipDefaults.filterChipBorder(
-                                borderColor = MaterialTheme.colorScheme.outlineVariant,
+                                borderColor         = MaterialTheme.colorScheme.outlineVariant,
                                 selectedBorderColor = color,
                                 selectedBorderWidth = 1.5.dp,
-                                enabled = true,
-                                selected = isSelected
+                                enabled             = true,
+                                selected            = isSelected
                             ),
                             shape = RoundedCornerShape(12.dp)
                         )
@@ -315,114 +286,72 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.extraLarge,
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f)
-            )
+            shape    = MaterialTheme.shapes.extraLarge,
+            colors   = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f))
         ) {
             Column(
-                modifier = Modifier
-                    .padding(24.dp)
-                    .fillMaxWidth(),
+                modifier            = Modifier.padding(24.dp).fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
                 Text(
                     formatDuration(elapsedSeconds),
-                    fontSize = 56.sp,
+                    fontSize   = 56.sp,
                     fontWeight = FontWeight.Black,
-                    color = if (isPaused)
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                    else
-                        MaterialTheme.colorScheme.onSurface
+                    color      = if (isPaused) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                    else         MaterialTheme.colorScheme.onSurface
                 )
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    StatItem(label = "KM", value = "%.2f".format(distanceMeters / 1000f))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    StatItem(label = distanceUnit, value = "%.2f".format(distanceDisplay))
                     StatDivider()
                     StatItem(label = "KCAL", value = "${(distanceMeters * 0.05).toInt()}")
                 }
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     StatItem(
-                        label = "TRENUTNA",
-                        value = "%.1f".format(currentSpeedKmh),
-                        unit = "km/h",
+                        label     = "TRENUTNA",
+                        value     = "%.1f".format(currentSpeed),
+                        unit      = speedUnit,
                         highlight = isTracking && !isPaused
                     )
                     StatDivider()
                     StatItem(
                         label = "PROSJEČNA",
-                        value = "%.1f".format(avgSpeedKmh),
-                        unit = "km/h"
+                        value = "%.1f".format(avgSpeed),
+                        unit  = speedUnit
                     )
                 }
             }
         }
 
         if (isTracking) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(
                     onClick = {
-                        if (isPaused) {
-                            context.startService(
-                                Intent(context, TrackingService::class.java).apply {
-                                    action = TrackingService.ACTION_RESUME
-                                }
-                            )
-                        } else {
-                            context.startService(
-                                Intent(context, TrackingService::class.java).apply {
-                                    action = TrackingService.ACTION_PAUSE
-                                }
-                            )
-                        }
+                        val action = if (isPaused) TrackingService.ACTION_RESUME else TrackingService.ACTION_PAUSE
+                        context.startService(Intent(context, TrackingService::class.java).apply { this.action = action })
                     },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(64.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isPaused)
-                            MaterialTheme.colorScheme.primary
-                        else
-                            MaterialTheme.colorScheme.secondary
+                    modifier = Modifier.weight(1f).height(64.dp),
+                    colors   = ButtonDefaults.buttonColors(
+                        containerColor = if (isPaused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
                     ),
                     shape = MaterialTheme.shapes.large
                 ) {
-                    Icon(
-                        if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
-                        contentDescription = null
-                    )
+                    Icon(if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text(
-                        if (isPaused) "NASTAVI" else "PAUZA",
-                        fontWeight = FontWeight.Bold
-                    )
+                    Text(if (isPaused) "NASTAVI" else "PAUZA", fontWeight = FontWeight.Bold)
                 }
 
                 Button(
-                    onClick = {
-                        stopTracking(context)
-                        showSaveDialog = true
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(64.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                    shape = MaterialTheme.shapes.large
+                    onClick  = { stopTracking(context); showSaveDialog = true },
+                    modifier = Modifier.weight(1f).height(64.dp),
+                    colors   = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    shape    = MaterialTheme.shapes.large
                 ) {
                     Icon(Icons.Default.Stop, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
@@ -432,41 +361,22 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
         } else {
             Button(
                 onClick = {
-                    val gpsOn = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
-                    val locPermission = ContextCompat.checkSelfPermission(
-                        context, Manifest.permission.ACCESS_FINE_LOCATION
-                    ) == PackageManager.PERMISSION_GRANTED
+                    val gpsOn         = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+                    val locPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
-                    if (!gpsOn) {
-                        showLocationExplanationDialog = true
-                    } else if (!locPermission) {
-                        locationLauncher.launch(
-                            arrayOf(
-                                Manifest.permission.ACCESS_FINE_LOCATION,
-                                Manifest.permission.ACCESS_COARSE_LOCATION
-                            )
-                        )
-                    } else {
-                        checkNotificationsAndStart(context, notificationLauncher)
+                    when {
+                        !gpsOn        -> showLocationExplanationDialog = true
+                        !locPermission -> locationLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                        else          -> checkNotificationsAndStart(context, notificationLauncher)
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(64.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = startButtonColor),
-                shape = MaterialTheme.shapes.large
+                modifier = Modifier.fillMaxWidth().height(64.dp),
+                colors   = ButtonDefaults.buttonColors(containerColor = startButtonColor),
+                shape    = MaterialTheme.shapes.large
             ) {
-                Icon(
-                    imageVector = Icons.Default.PlayArrow,
-                    contentDescription = null,
-                    modifier = Modifier.size(36.dp)
-                )
+                Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(36.dp))
                 Spacer(Modifier.width(8.dp))
-                Text(
-                    text = "ZAPOČNI",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontSize = 20.sp
-                )
+                Text("ZAPOČNI", style = MaterialTheme.typography.titleMedium, fontSize = 20.sp)
             }
         }
     }
@@ -483,50 +393,30 @@ fun StatItem(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        Row(
-            verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.spacedBy(3.dp)
-        ) {
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(
                 value,
-                style = MaterialTheme.typography.titleLarge,
+                style      = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = if (highlight)
-                    MaterialTheme.colorScheme.primary
-                else
-                    MaterialTheme.colorScheme.onSurface
+                color      = if (highlight) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
             )
             if (unit != null) {
-                Text(
-                    unit,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 2.dp)
-                )
+                Text(unit, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
             }
         }
-        Text(
-            label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
 fun StatDivider() {
     Box(
-        modifier = Modifier
-            .height(40.dp)
-            .width(1.dp)
-            .padding(vertical = 4.dp),
+        modifier         = Modifier.height(40.dp).width(1.dp).padding(vertical = 4.dp),
         contentAlignment = Alignment.Center
     ) {
         HorizontalDivider(
-            modifier = Modifier
-                .fillMaxHeight()
-                .width(1.dp),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+            modifier = Modifier.fillMaxHeight().width(1.dp),
+            color    = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
         )
     }
 }
@@ -536,10 +426,7 @@ private fun checkNotificationsAndStart(
     launcher: androidx.activity.result.ActivityResultLauncher<String>
 ) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        if (ContextCompat.checkSelfPermission(
-                context, Manifest.permission.POST_NOTIFICATIONS
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
             startTracking(context)
@@ -550,13 +437,9 @@ private fun checkNotificationsAndStart(
 }
 
 private fun startTracking(context: Context) {
-    context.startForegroundService(
-        Intent(context, TrackingService::class.java).apply { action = TrackingService.ACTION_START }
-    )
+    context.startForegroundService(Intent(context, TrackingService::class.java).apply { action = TrackingService.ACTION_START })
 }
 
 private fun stopTracking(context: Context) {
-    context.startService(
-        Intent(context, TrackingService::class.java).apply { action = TrackingService.ACTION_STOP }
-    )
+    context.startService(Intent(context, TrackingService::class.java).apply { action = TrackingService.ACTION_STOP })
 }

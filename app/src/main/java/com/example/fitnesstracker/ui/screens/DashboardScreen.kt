@@ -26,32 +26,40 @@ import com.example.fitnesstracker.ui.TypeDayStat
 
 @Composable
 fun DashboardScreen(viewModel: ActivityViewModel, navController: NavController) {
-    val activities       by viewModel.activities.collectAsState()
-    val todayCount       by viewModel.todayCount.collectAsState()
-    val todayDistance    by viewModel.todayDistance.collectAsState()
-    val statsByType      by viewModel.todayStatsByType.collectAsState()
+    val activities    by viewModel.activities.collectAsState()
+    val todayCount    by viewModel.todayCount.collectAsState()
+    val todayDistance by viewModel.todayDistance.collectAsState()
+    val statsByType   by viewModel.todayStatsByType.collectAsState()
+    val units         by viewModel.units.collectAsState()
+    val useKm          = units == "km"
 
     var selectedType by remember { mutableStateOf("Trčanje") }
+    val selectedStat  = statsByType.find { it.type == selectedType }
 
-    val selectedStat = statsByType.find { it.type == selectedType }
+    val goalDistanceInUnits = selectedStat?.goal?.distanceKm?.let {
+        if (useKm) it else it * 0.621371f
+    } ?: 0f
 
-    val distanceProgress = selectedStat?.let {
-        if (it.goal.distanceKm > 0f) (it.distanceMeters / 1000f) / it.goal.distanceKm else 0f
-    }?.coerceIn(0f, 1f) ?: 0f
+    val actualDistanceInUnits = selectedStat?.let {
+        if (useKm) it.distanceMeters / 1000f else it.distanceMeters / 1609f
+    } ?: 0f
+
+    val distanceProgress = if (goalDistanceInUnits > 0f)
+        (actualDistanceInUnits / goalDistanceInUnits).coerceIn(0f, 1f) else 0f
 
     val durationProgress = selectedStat?.let {
         if (it.goal.durationMin > 0f) (it.durationSeconds / 60f) / it.goal.durationMin else 0f
     }?.coerceIn(0f, 1f) ?: 0f
 
     val animatedDistanceProgress by animateFloatAsState(
-        targetValue    = distanceProgress,
-        animationSpec  = tween(durationMillis = 700),
-        label          = "distProgress"
+        targetValue   = distanceProgress,
+        animationSpec = tween(700),
+        label         = "distProgress"
     )
     val animatedDurationProgress by animateFloatAsState(
-        targetValue    = durationProgress,
-        animationSpec  = tween(durationMillis = 700),
-        label          = "durProgress"
+        targetValue   = durationProgress,
+        animationSpec = tween(700),
+        label         = "durProgress"
     )
 
     Column(
@@ -76,9 +84,9 @@ fun DashboardScreen(viewModel: ActivityViewModel, navController: NavController) 
             shape = MaterialTheme.shapes.extraLarge
         ) {
             Column(
-                modifier              = Modifier.fillMaxWidth().padding(24.dp),
-                horizontalAlignment   = Alignment.CenterHorizontally,
-                verticalArrangement   = Arrangement.spacedBy(20.dp)
+                modifier            = Modifier.fillMaxWidth().padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
                 Text(
                     text  = "Današnji napredak",
@@ -99,12 +107,11 @@ fun DashboardScreen(viewModel: ActivityViewModel, navController: NavController) 
                 ) {
                     GoalRing(
                         progress    = animatedDistanceProgress,
-                        centerValue = "%.1f".format((selectedStat?.distanceMeters ?: 0f) / 1000f),
-                        centerUnit  = "km",
-                        label       = "od %.0f km".format(selectedStat?.goal?.distanceKm ?: 0f),
+                        centerValue = "%.1f".format(actualDistanceInUnits),
+                        centerUnit  = if (useKm) "km" else "mi",
+                        label       = "od %.0f %s".format(goalDistanceInUnits, if (useKm) "km" else "mi"),
                         modifier    = Modifier.size(130.dp)
                     )
-
                     GoalRing(
                         progress    = animatedDurationProgress,
                         centerValue = "%d".format((selectedStat?.durationSeconds ?: 0L) / 60L),
@@ -147,17 +154,9 @@ fun DashboardScreen(viewModel: ActivityViewModel, navController: NavController) 
             modifier = Modifier.fillMaxWidth().height(56.dp),
             shape    = MaterialTheme.shapes.large
         ) {
-            Icon(
-                imageVector     = Icons.Default.PlayArrow,
-                contentDescription = null,
-                modifier        = Modifier.size(32.dp)
-            )
+            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(32.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text  = "Započni aktivnost",
-                style = MaterialTheme.typography.titleMedium,
-                fontSize = 18.sp
-            )
+            Text("Započni aktivnost", style = MaterialTheme.typography.titleMedium, fontSize = 18.sp)
         }
 
         Row(
@@ -165,11 +164,7 @@ fun DashboardScreen(viewModel: ActivityViewModel, navController: NavController) 
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment     = Alignment.CenterVertically
         ) {
-            Text(
-                text       = "Nedavne aktivnosti",
-                style      = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
+            Text("Nedavne aktivnosti", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             TextButton(onClick = {
                 navController.navigate("history") {
                     popUpTo(navController.graph.findStartDestination().id) { saveState = true }
@@ -182,7 +177,7 @@ fun DashboardScreen(viewModel: ActivityViewModel, navController: NavController) 
         if (activities.isEmpty()) {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Box(
-                    modifier        = Modifier.fillMaxWidth().padding(32.dp),
+                    modifier         = Modifier.fillMaxWidth().padding(32.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
@@ -207,6 +202,7 @@ fun DashboardScreen(viewModel: ActivityViewModel, navController: NavController) 
             activities.take(3).forEach { activity ->
                 ActivityCard(
                     activity = activity,
+                    useKm    = useKm,
                     onClick  = { navController.navigate("detail/${activity.id}") }
                 )
             }
@@ -227,26 +223,18 @@ private fun ActivityTypeSwitcher(
     ) {
         types.forEach { type ->
             val isSelected = type == selectedType
-            val bgColor    = if (isSelected)
-                MaterialTheme.colorScheme.primary
-            else
-                MaterialTheme.colorScheme.surfaceVariant
-
-            val iconTint = if (isSelected)
-                MaterialTheme.colorScheme.onPrimary
-            else
-                MaterialTheme.colorScheme.onSurfaceVariant
+            val bgColor    = if (isSelected) MaterialTheme.colorScheme.primary
+            else            MaterialTheme.colorScheme.surfaceVariant
+            val iconTint   = if (isSelected) MaterialTheme.colorScheme.onPrimary
+            else            MaterialTheme.colorScheme.onSurfaceVariant
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(4.dp),
-                modifier = Modifier.clickable { onSelect(type) }
+                modifier            = Modifier.clickable { onSelect(type) }
             ) {
                 Box(
-                    modifier        = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(bgColor),
+                    modifier         = Modifier.size(44.dp).clip(CircleShape).background(bgColor),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -258,9 +246,9 @@ private fun ActivityTypeSwitcher(
                 }
                 if (isSelected) {
                     Text(
-                        text  = type,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
+                        text       = type,
+                        style      = MaterialTheme.typography.labelSmall,
+                        color      = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -281,35 +269,20 @@ private fun GoalRing(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Box(
-            modifier        = modifier,
-            contentAlignment = Alignment.Center
-        ) {
+        Box(modifier = modifier, contentAlignment = Alignment.Center) {
             CircularProgressIndicator(
-                progress      = { progress },
-                modifier      = Modifier.fillMaxSize(),
-                strokeWidth   = 10.dp,
-                trackColor    = MaterialTheme.colorScheme.surfaceVariant,
-                strokeCap     = StrokeCap.Round
+                progress    = { progress },
+                modifier    = Modifier.fillMaxSize(),
+                strokeWidth = 10.dp,
+                trackColor  = MaterialTheme.colorScheme.surfaceVariant,
+                strokeCap   = StrokeCap.Round
             )
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text       = centerValue,
-                    style      = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.ExtraBold
-                )
-                Text(
-                    text  = centerUnit,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text(centerValue, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+                Text(centerUnit, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        Text(
-            text  = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -331,22 +304,9 @@ fun StatCard(
             horizontalAlignment = Alignment.Start,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(
-                imageVector        = icon,
-                contentDescription = null,
-                tint               = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier           = Modifier.size(24.dp)
-            )
-            Text(
-                text       = value,
-                style      = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text  = title,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
+            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
