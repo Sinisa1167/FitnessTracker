@@ -15,6 +15,8 @@ import androidx.compose.ui.unit.dp
 import com.example.fitnesstracker.data.model.Activity
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.ui.graphics.Color
+import com.example.fitnesstracker.ui.theme.detailColor
 
 @Composable
 fun ActivityCard(activity: Activity, onClick: () -> Unit) {
@@ -59,11 +61,17 @@ fun ActivityCard(activity: Activity, onClick: () -> Unit) {
 
 fun activityIcon(type: String) = when (type.lowercase()) {
     "trčanje" -> Icons.AutoMirrored.Filled.DirectionsRun
-    "trcanje" -> Icons.AutoMirrored.Filled.DirectionsRun
     "hodanje" -> Icons.AutoMirrored.Filled.DirectionsWalk
     "plivanje" -> Icons.Default.Pool
     "biciklizam" -> Icons.AutoMirrored.Filled.DirectionsBike
     else -> Icons.Default.FitnessCenter
+}
+
+// CommonComponents.kt
+
+@Composable
+fun getActivityColor(type: String): Color {
+    return detailColor // Direktno koristiš varijablu iz Color.kt
 }
 
 fun formatDate(timestamp: Long): String {

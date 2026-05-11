@@ -14,6 +14,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -30,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import com.example.fitnesstracker.data.model.Activity
 import com.example.fitnesstracker.service.TrackingService
@@ -39,7 +41,7 @@ import com.example.fitnesstracker.ui.ActivityViewModel
 @Composable
 fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
     val isTracking by TrackingService.isTracking.observeAsState(false)
     val isPaused by TrackingService.isPaused.observeAsState(false)
@@ -48,14 +50,14 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
     val currentSpeedKmh by TrackingService.currentSpeedKmh.observeAsState(0f)
     val avgSpeedKmh = if (elapsedSeconds > 0) (distanceMeters / 1000f) / (elapsedSeconds / 3600f) else 0f
 
-    var selectedType by remember { mutableStateOf("Trcanje") }
+    var selectedType by remember { mutableStateOf("Trčanje") }
     var description by remember { mutableStateOf("") }
     var showSaveDialog by remember { mutableStateOf(false) }
     var expanded by remember { mutableStateOf(false) }
     var showPermissionDialog by remember { mutableStateOf(false) }
     var showLocationExplanationDialog by remember { mutableStateOf(false) }
 
-    val activityTypes = listOf("Trcanje", "Hodanje", "Biciklizam", "Plivanje", "Ostalo")
+    val activityTypes = listOf("Trčanje", "Hodanje", "Biciklizam", "Plivanje", "Ostalo")
     val locationManager = remember { context.getSystemService(Context.LOCATION_SERVICE) as LocationManager }
 
     var isLocationEnabled by remember {
@@ -243,22 +245,68 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
         }
 
         if (!isTracking) {
-            ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-                OutlinedTextField(
-                    value = selectedType,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Aktivnost") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-                    modifier = Modifier
-                        .menuAnchor()
-                        .fillMaxWidth()
-                )
-                ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                    activityTypes.forEach { type ->
-                        DropdownMenuItem(
-                            text = { Text(type) },
-                            onClick = { selectedType = type; expanded = false }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Red sa naslovom i indikatorom strelica
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Odaberi aktivnost",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    // Mala ikona koja suptilno sugeriše da postoji još opcija desno
+                    Icon(
+                        imageVector = Icons.Default.SwapHoriz,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                }
+
+                androidx.compose.foundation.lazy.LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
+                ) {
+                    items(activityTypes.size) { index ->
+                        val type = activityTypes[index]
+                        val isSelected = selectedType == type
+                        val color = getActivityColor(type) // Tvoja funkcija iz CommonComponents
+
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { selectedType = type },
+                            label = {
+                                Text(
+                                    type,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            },
+                            // Maknuta kvačica (leadingIcon je sad uvijek ikonica sporta)
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = activityIcon(type),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    // Ikonica mijenja boju u tvoju definisanu boju kad je selektovana
+                                    tint = if (isSelected) color else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                // Pozadina čipa postaje blaga varijanta tvoje boje
+                                selectedContainerColor = color.copy(alpha = 0.15f),
+                                selectedLabelColor = color
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                borderColor = MaterialTheme.colorScheme.outlineVariant,
+                                selectedBorderColor = color,
+                                selectedBorderWidth = 1.5.dp,
+                                enabled = true,
+                                selected = isSelected
+                            ),
+                            shape = RoundedCornerShape(12.dp)
                         )
                     }
                 }
@@ -408,9 +456,17 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
                 colors = ButtonDefaults.buttonColors(containerColor = startButtonColor),
                 shape = MaterialTheme.shapes.large
             ) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null)
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = null,
+                    modifier = Modifier.size(36.dp)
+                )
                 Spacer(Modifier.width(8.dp))
-                Text("ZAPOČNI", fontWeight = FontWeight.Bold)
+                Text(
+                    text = "ZAPOČNI",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontSize = 20.sp
+                )
             }
         }
     }

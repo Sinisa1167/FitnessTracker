@@ -50,7 +50,7 @@ class MainActivity : ComponentActivity() {
                 val bottomNavItems = listOf(
                     Triple("dashboard", Icons.Default.Home, "Početna"),
                     Triple("tracking", Icons.Default.Add, "Trening"),
-                    Triple("history", Icons.Default.History, "Historija"),
+                    Triple("history", Icons.Default.History, "Istorija"),
                     Triple("statistics", Icons.Default.BarChart, "Statistika"),
                     Triple("settings", Icons.Default.Settings, "Podešavanja")
                 )
