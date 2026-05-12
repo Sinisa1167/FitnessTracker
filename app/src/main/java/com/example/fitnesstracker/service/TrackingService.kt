@@ -12,6 +12,7 @@ import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.MutableLiveData
 import com.example.fitnesstracker.FitnessApp
 import com.example.fitnesstracker.MainActivity
+import com.example.fitnesstracker.R
 import com.google.android.gms.location.*
 
 class TrackingService : LifecycleService() {
@@ -20,20 +21,19 @@ class TrackingService : LifecycleService() {
     private lateinit var locationCallback: LocationCallback
     private var timerThread: Thread? = null
     private var startTimeMillis = 0L
-    private var timerRunning = false
+    private var timerRunning    = false
 
     companion object {
-        val isTracking = MutableLiveData(false)
-        val isPaused = MutableLiveData(false)
-
-        val pathPoints = MutableLiveData<MutableList<Location>>(mutableListOf())
-        val distanceMeters = MutableLiveData(0f)
-        val elapsedSeconds = MutableLiveData(0L)
+        val isTracking      = MutableLiveData(false)
+        val isPaused        = MutableLiveData(false)
+        val pathPoints      = MutableLiveData<MutableList<Location>>(mutableListOf())
+        val distanceMeters  = MutableLiveData(0f)
+        val elapsedSeconds  = MutableLiveData(0L)
         val currentSpeedKmh = MutableLiveData(0f)
 
-        const val ACTION_START = "ACTION_START"
-        const val ACTION_STOP = "ACTION_STOP"
-        const val ACTION_PAUSE = "ACTION_PAUSE"
+        const val ACTION_START  = "ACTION_START"
+        const val ACTION_STOP   = "ACTION_STOP"
+        const val ACTION_PAUSE  = "ACTION_PAUSE"
         const val ACTION_RESUME = "ACTION_RESUME"
     }
 
@@ -49,9 +49,9 @@ class TrackingService : LifecycleService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_START -> startTracking()
-            ACTION_STOP -> stopTracking()
-            ACTION_PAUSE -> pauseTracking()
+            ACTION_START  -> startTracking()
+            ACTION_STOP   -> stopTracking()
+            ACTION_PAUSE  -> pauseTracking()
             ACTION_RESUME -> resumeTracking()
         }
         return super.onStartCommand(intent, flags, startId)
@@ -66,16 +66,12 @@ class TrackingService : LifecycleService() {
         elapsedSeconds.postValue(0L)
 
         startTimeMillis = System.currentTimeMillis()
-        timerRunning = true
+        timerRunning    = true
 
         timerThread = Thread {
             while (timerRunning) {
                 elapsedSeconds.postValue((System.currentTimeMillis() - startTimeMillis) / 1000)
-                try {
-                    Thread.sleep(1000)
-                } catch (e: InterruptedException) {
-                    break
-                }
+                try { Thread.sleep(1000) } catch (e: InterruptedException) { break }
             }
         }.also { it.start() }
 
@@ -88,16 +84,14 @@ class TrackingService : LifecycleService() {
         timerRunning = false
         timerThread?.interrupt()
         timerThread = null
-        try {
-            fusedLocationClient.removeLocationUpdates(locationCallback)
-        } catch (e: Exception) {}
+        try { fusedLocationClient.removeLocationUpdates(locationCallback) } catch (e: Exception) {}
     }
 
     private fun resumeTracking() {
         isPaused.postValue(false)
         val pausedSeconds = elapsedSeconds.value ?: 0L
-        startTimeMillis = System.currentTimeMillis() - (pausedSeconds * 1000L)
-        timerRunning = true
+        startTimeMillis   = System.currentTimeMillis() - (pausedSeconds * 1000L)
+        timerRunning      = true
         timerThread = Thread {
             while (timerRunning) {
                 elapsedSeconds.postValue((System.currentTimeMillis() - startTimeMillis) / 1000)
@@ -114,11 +108,7 @@ class TrackingService : LifecycleService() {
         isTracking.postValue(false)
         isPaused.postValue(false)
         currentSpeedKmh.postValue(0f)
-        try {
-            fusedLocationClient.removeLocationUpdates(locationCallback)
-        } catch (e: Exception) {
-            // Ignorišemo ako nije ni bio pokrenut
-        }
+        try { fusedLocationClient.removeLocationUpdates(locationCallback) } catch (e: Exception) {}
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -126,7 +116,7 @@ class TrackingService : LifecycleService() {
     private fun addPathPoint(location: Location) {
         val points = pathPoints.value ?: mutableListOf()
         if (points.isNotEmpty()) {
-            val last = points.last()
+            val last   = points.last()
             val result = FloatArray(1)
             Location.distanceBetween(
                 last.latitude, last.longitude,
@@ -142,35 +132,23 @@ class TrackingService : LifecycleService() {
     }
 
     private fun requestLocationUpdates() {
-        val hasFineLocation = ContextCompat.checkSelfPermission(
-            this, android.Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
+        val hasFine   = ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val hasCoarse = ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
-        val hasCoarseLocation = ContextCompat.checkSelfPermission(
-            this, android.Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-
-        // Ako nemamo nikakvu dozvolu, samo logujemo i izlazimo iz funkcije (tajmer nastavlja raditi)
-        if (!hasFineLocation && !hasCoarseLocation) {
-            android.util.Log.w("TrackingService", "Trening pokrenut bez GPS dozvola.")
+        if (!hasFine && !hasCoarse) {
+            android.util.Log.w("TrackingService", "Tracking started without GPS permissions.")
             return
         }
 
-        val priority = if (hasFineLocation)
-            Priority.PRIORITY_HIGH_ACCURACY
-        else
-            Priority.PRIORITY_BALANCED_POWER_ACCURACY
+        val priority = if (hasFine) Priority.PRIORITY_HIGH_ACCURACY
+        else         Priority.PRIORITY_BALANCED_POWER_ACCURACY
 
         val request = LocationRequest.Builder(priority, 2000L)
             .setMinUpdateIntervalMillis(1000L)
             .build()
 
         try {
-            fusedLocationClient.requestLocationUpdates(
-                request,
-                locationCallback,
-                Looper.getMainLooper()
-            )
+            fusedLocationClient.requestLocationUpdates(request, locationCallback, Looper.getMainLooper())
         } catch (e: SecurityException) {
             android.util.Log.e("TrackingService", "SecurityException: ${e.message}")
         }
@@ -183,8 +161,8 @@ class TrackingService : LifecycleService() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         return NotificationCompat.Builder(this, FitnessApp.CHANNEL_TRACKING)
-            .setContentTitle("Trening u toku")
-            .setContentText("Mjerimo vaše rezultate...")
+            .setContentTitle(getString(R.string.notif_tracking_title))
+            .setContentText(getString(R.string.notif_tracking_text))
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setContentIntent(pendingIntent)
             .setOngoing(true)

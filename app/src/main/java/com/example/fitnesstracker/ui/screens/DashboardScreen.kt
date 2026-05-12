@@ -16,25 +16,33 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import com.example.fitnesstracker.R
+import com.example.fitnesstracker.data.calculateCalories
 import com.example.fitnesstracker.ui.ActivityViewModel
 import com.example.fitnesstracker.ui.TypeDayStat
 
 @Composable
-fun DashboardScreen(viewModel: ActivityViewModel, navController: NavController) {
-    val activities    by viewModel.activities.collectAsState()
-    val todayCount    by viewModel.todayCount.collectAsState()
+fun DashboardScreen(
+    viewModel: ActivityViewModel,
+    navController: NavController
+) {
+    val activities by viewModel.activities.collectAsState()
+    val todayCount by viewModel.todayCount.collectAsState()
     val todayDistance by viewModel.todayDistance.collectAsState()
-    val statsByType   by viewModel.todayStatsByType.collectAsState()
-    val units         by viewModel.units.collectAsState()
-    val useKm          = units == "km"
+    val statsByType by viewModel.todayStatsByType.collectAsState()
+    val units by viewModel.units.collectAsState()
+    val userProfile by viewModel.userProfile.collectAsState()
+
+    val useKm = units == "km"
 
     var selectedType by remember { mutableStateOf("Trčanje") }
-    val selectedStat  = statsByType.find { it.type == selectedType }
+    val selectedStat = statsByType.find { it.type == selectedType }
 
     val goalDistanceInUnits = selectedStat?.goal?.distanceKm?.let {
         if (useKm) it else it * 0.621371f
@@ -52,16 +60,54 @@ fun DashboardScreen(viewModel: ActivityViewModel, navController: NavController) 
     }?.coerceIn(0f, 1f) ?: 0f
 
     val animatedDistanceProgress by animateFloatAsState(
-        targetValue   = distanceProgress,
+        targetValue = distanceProgress,
         animationSpec = tween(700),
-        label         = "distProgress"
-    )
-    val animatedDurationProgress by animateFloatAsState(
-        targetValue   = durationProgress,
-        animationSpec = tween(700),
-        label         = "durProgress"
+        label = "distProgress"
     )
 
+    val animatedDurationProgress by animateFloatAsState(
+        targetValue = durationProgress,
+        animationSpec = tween(700),
+        label = "durProgress"
+    )
+
+    val unitLabel = if (useKm) "km" else "mi"
+
+    val todayCalories = remember(statsByType, userProfile) {
+        statsByType.sumOf { stat ->
+            calculateCalories(stat.type, stat.durationSeconds, userProfile).toDouble()
+        }.toInt()
+    }
+
+    var showProfileDialog by remember { mutableStateOf(false) }
+
+    if (showProfileDialog) {
+        AlertDialog(
+            onDismissRequest = { showProfileDialog = false },
+            icon = { Icon(Icons.Default.Info, contentDescription = null) },
+            title = { Text(stringResource(R.string.dashboard_calories_dialog_title)) },
+            text = { Text(stringResource(R.string.dashboard_calories_dialog_text)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showProfileDialog = false
+                    navController.navigate("settings") {
+                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }) {
+                    Text(stringResource(R.string.dashboard_calories_dialog_go))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showProfileDialog = false }) {
+                    Text(stringResource(R.string.dashboard_calories_dialog_dismiss))
+                }
+            }
+        )
+    }
+
+    // Main content
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -71,75 +117,80 @@ fun DashboardScreen(viewModel: ActivityViewModel, navController: NavController) 
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text       = "Fitness Tracker",
-            style      = MaterialTheme.typography.headlineMedium,
+            text = stringResource(R.string.dashboard_title),
+            style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold
         )
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors   = CardDefaults.cardColors(
+            colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
             ),
             shape = MaterialTheme.shapes.extraLarge
         ) {
             Column(
-                modifier            = Modifier.fillMaxWidth().padding(24.dp),
+                modifier = Modifier.fillMaxWidth().padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
                 Text(
-                    text  = "Današnji napredak",
+                    text = stringResource(R.string.dashboard_today_progress),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
 
                 ActivityTypeSwitcher(
-                    types        = statsByType.map { it.type },
+                    types = statsByType.map { it.type },
                     selectedType = selectedType,
-                    onSelect     = { selectedType = it }
+                    onSelect = { selectedType = it }
                 )
 
                 Row(
-                    modifier              = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment     = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     GoalRing(
-                        progress    = animatedDistanceProgress,
+                        progress = animatedDistanceProgress,
                         centerValue = "%.1f".format(actualDistanceInUnits),
-                        centerUnit  = if (useKm) "km" else "mi",
-                        label       = "od %.0f %s".format(goalDistanceInUnits, if (useKm) "km" else "mi"),
-                        modifier    = Modifier.size(130.dp)
+                        centerUnit = unitLabel,
+                        label = stringResource(R.string.dashboard_goal_of, goalDistanceInUnits, unitLabel),
+                        modifier = Modifier.size(130.dp)
                     )
+
                     GoalRing(
-                        progress    = animatedDurationProgress,
+                        progress = animatedDurationProgress,
                         centerValue = "%d".format((selectedStat?.durationSeconds ?: 0L) / 60L),
-                        centerUnit  = "min",
-                        label       = "od %.0f min".format(selectedStat?.goal?.durationMin ?: 0f),
-                        modifier    = Modifier.size(130.dp)
+                        centerUnit = "min",
+                        label = stringResource(
+                            R.string.dashboard_goal_of,
+                            selectedStat?.goal?.durationMin ?: 0f,
+                            "min"
+                        ),
+                        modifier = Modifier.size(130.dp)
                     )
                 }
             }
         }
 
         Row(
-            modifier              = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             StatCard(
-                modifier       = Modifier.weight(1f),
-                title          = "Aktivnosti",
-                value          = todayCount.toString(),
-                icon           = Icons.Default.History,
+                modifier = Modifier.weight(1f),
+                title = stringResource(R.string.dashboard_activities),
+                value = todayCount.toString(),
+                icon = Icons.Default.History,
                 containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
             )
-            StatCard(
-                modifier       = Modifier.weight(1f),
-                title          = "Kalorije",
-                value          = "${(todayDistance * 0.06).toInt()} kcal",
-                icon           = Icons.Default.Whatshot,
-                containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f)
+
+            CaloriesStatCard(
+                modifier = Modifier.weight(1f),
+                calories = todayCalories,
+                isEstimate = !userProfile.isConfigured,
+                onWarningClick = { showProfileDialog = true }
             )
         }
 
@@ -148,36 +199,46 @@ fun DashboardScreen(viewModel: ActivityViewModel, navController: NavController) 
                 navController.navigate("tracking") {
                     popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                     launchSingleTop = true
-                    restoreState    = true
+                    restoreState = true
                 }
             },
             modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape    = MaterialTheme.shapes.large
+            shape = MaterialTheme.shapes.large
         ) {
             Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(32.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Započni aktivnost", style = MaterialTheme.typography.titleMedium, fontSize = 18.sp)
+            Text(
+                stringResource(R.string.dashboard_start_activity),
+                style = MaterialTheme.typography.titleMedium,
+                fontSize = 18.sp
+            )
         }
 
         Row(
-            modifier              = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment     = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Nedavne aktivnosti", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(
+                stringResource(R.string.dashboard_recent_activities),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
             TextButton(onClick = {
                 navController.navigate("history") {
                     popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                     launchSingleTop = true
-                    restoreState    = true
+                    restoreState = true
                 }
-            }) { Text("Vidi sve") }
+            }) {
+                Text(stringResource(R.string.dashboard_see_all))
+            }
         }
 
         if (activities.isEmpty()) {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Box(
-                    modifier         = Modifier.fillMaxWidth().padding(32.dp),
+                    modifier = Modifier.fillMaxWidth().padding(32.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
@@ -188,10 +249,10 @@ fun DashboardScreen(viewModel: ActivityViewModel, navController: NavController) 
                             Icons.Default.FitnessCenter,
                             contentDescription = null,
                             modifier = Modifier.size(48.dp),
-                            tint     = MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            "Nema zabilježenih aktivnosti",
+                            stringResource(R.string.dashboard_no_activities),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -202,14 +263,15 @@ fun DashboardScreen(viewModel: ActivityViewModel, navController: NavController) 
             activities.take(3).forEach { activity ->
                 ActivityCard(
                     activity = activity,
-                    useKm    = useKm,
-                    onClick  = { navController.navigate("detail/${activity.id}") }
+                    useKm = useKm,
+                    onClick = { navController.navigate("detail/${activity.id}") }
                 )
             }
         }
     }
 }
 
+// Helper composables
 @Composable
 private fun ActivityTypeSwitcher(
     types: List<String>,
@@ -217,38 +279,41 @@ private fun ActivityTypeSwitcher(
     onSelect: (String) -> Unit
 ) {
     Row(
-        modifier              = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment     = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically
     ) {
         types.forEach { type ->
             val isSelected = type == selectedType
-            val bgColor    = if (isSelected) MaterialTheme.colorScheme.primary
-            else            MaterialTheme.colorScheme.surfaceVariant
-            val iconTint   = if (isSelected) MaterialTheme.colorScheme.onPrimary
-            else            MaterialTheme.colorScheme.onSurfaceVariant
+            val bgColor = if (isSelected) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.surfaceVariant
+            val iconTint = if (isSelected) MaterialTheme.colorScheme.onPrimary
+            else MaterialTheme.colorScheme.onSurfaceVariant
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(4.dp),
-                modifier            = Modifier.clickable { onSelect(type) }
             ) {
                 Box(
-                    modifier         = Modifier.size(44.dp).clip(CircleShape).background(bgColor),
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(bgColor)
+                        .clickable { onSelect(type) },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector        = activityIcon(type),
-                        contentDescription = type,
-                        tint               = iconTint,
-                        modifier           = Modifier.size(22.dp)
+                        imageVector = activityIcon(type),
+                        contentDescription = activityTypeDisplayName(type),
+                        tint = iconTint,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
                 if (isSelected) {
                     Text(
-                        text       = type,
-                        style      = MaterialTheme.typography.labelSmall,
-                        color      = MaterialTheme.colorScheme.primary,
+                        text = activityTypeDisplayName(type),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -271,18 +336,89 @@ private fun GoalRing(
     ) {
         Box(modifier = modifier, contentAlignment = Alignment.Center) {
             CircularProgressIndicator(
-                progress    = { progress },
-                modifier    = Modifier.fillMaxSize(),
+                progress = { progress },
+                modifier = Modifier.fillMaxSize(),
                 strokeWidth = 10.dp,
-                trackColor  = MaterialTheme.colorScheme.surfaceVariant,
-                strokeCap   = StrokeCap.Round
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                strokeCap = StrokeCap.Round
             )
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(centerValue, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
-                Text(centerUnit, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    centerValue,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    centerUnit,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
-        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+fun CaloriesStatCard(
+    modifier: Modifier = Modifier,
+    calories: Int,
+    isEstimate: Boolean,
+    onWarningClick: () -> Unit
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f)
+        ),
+        shape = MaterialTheme.shapes.large
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.Start,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.Whatshot,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp)
+                )
+                if (isEstimate) {
+                    IconButton(
+                        onClick = onWarningClick,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+
+            Text(
+                "$calories kcal",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                stringResource(R.string.dashboard_calories),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
@@ -296,15 +432,20 @@ fun StatCard(
 ) {
     Card(
         modifier = modifier,
-        colors   = CardDefaults.cardColors(containerColor = containerColor),
-        shape    = MaterialTheme.shapes.large
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+        shape = MaterialTheme.shapes.large
     ) {
         Column(
-            modifier            = Modifier.padding(16.dp),
+            modifier = Modifier.padding(16.dp),
             horizontalAlignment = Alignment.Start,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(24.dp)
+            )
             Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Text(title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }

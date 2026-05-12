@@ -13,10 +13,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavController
+import com.example.fitnesstracker.R
 import com.example.fitnesstracker.ui.ActivityViewModel
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -46,7 +48,7 @@ fun ActivityDetailScreen(
 
         Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             TopBar(
-                title    = act.type,
+                title    = activityTypeDisplayName(act.type),
                 onBack   = { navController.popBackStack() },
                 onDelete = { viewModel.deleteActivity(act); navController.popBackStack() }
             )
@@ -63,16 +65,27 @@ fun ActivityDetailScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth().height(150.dp).padding(16.dp),
                     shape    = RoundedCornerShape(24.dp),
-                    colors   = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    colors   = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    )
                 ) {
                     Column(
                         modifier            = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(Icons.Default.LocationOff, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(40.dp))
+                        Icon(
+                            Icons.Default.LocationOff,
+                            contentDescription = null,
+                            tint     = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(40.dp)
+                        )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("Mapa nije dostupna za ovu aktivnost", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            stringResource(R.string.detail_map_unavailable),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
@@ -81,22 +94,53 @@ fun ActivityDetailScreen(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 shape    = RoundedCornerShape(24.dp)
             ) {
-                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text("Statistika", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Column(
+                    modifier            = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        stringResource(R.string.detail_stats_title),
+                        style      = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
                     HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
 
                     Row(Modifier.fillMaxWidth()) {
-                        DetailItem(Modifier.weight(1f), Icons.Default.Timer, "Trajanje", formatDuration(act.durationSeconds))
-                        DetailItem(Modifier.weight(1f), Icons.Default.Route, "Udaljenost", formatDistance(act.distanceMeters, useKm))
+                        DetailItem(
+                            Modifier.weight(1f),
+                            Icons.Default.Timer,
+                            stringResource(R.string.detail_duration),
+                            formatDuration(act.durationSeconds)
+                        )
+                        DetailItem(
+                            Modifier.weight(1f),
+                            Icons.Default.Route,
+                            stringResource(R.string.detail_distance),
+                            formatDistance(act.distanceMeters, useKm)
+                        )
                     }
                     Row(Modifier.fillMaxWidth()) {
-                        DetailItem(Modifier.weight(1f), Icons.Default.Speed, "Brzina", formatSpeed(act.avgSpeedKmh, useKm))
-                        DetailItem(Modifier.weight(1f), Icons.Default.CalendarToday, "Datum", formatDate(act.timestamp).split(" ")[0])
+                        DetailItem(
+                            Modifier.weight(1f),
+                            Icons.Default.Speed,
+                            stringResource(R.string.detail_speed),
+                            formatSpeed(act.avgSpeedKmh, useKm)
+                        )
+                        DetailItem(
+                            Modifier.weight(1f),
+                            Icons.Default.CalendarToday,
+                            stringResource(R.string.detail_date),
+                            formatDate(act.timestamp).split(" ")[0]
+                        )
                     }
 
                     if (act.description.isNotBlank()) {
                         HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
-                        DetailRow(icon = Icons.Default.Notes, label = "Opis", value = act.description)
+                        DetailRow(
+                            icon  = Icons.Default.Notes,
+                            label = stringResource(R.string.detail_description),
+                            value = act.description
+                        )
                     }
                 }
             }
@@ -108,7 +152,12 @@ fun ActivityDetailScreen(
 }
 
 @Composable
-fun DetailItem(modifier: Modifier, icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String) {
+fun DetailItem(
+    modifier: Modifier,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    value: String
+) {
     Row(
         modifier              = modifier.padding(vertical = 4.dp),
         verticalAlignment     = Alignment.CenterVertically,
@@ -130,7 +179,9 @@ fun OsmMapView(context: Context, gpsPoints: List<GeoPoint>, routeColor: Color) {
             MapView(context).apply {
                 setTileSource(TileSourceFactory.MAPNIK)
                 setMultiTouchControls(true)
-                zoomController.setVisibility(org.osmdroid.views.CustomZoomButtonsController.Visibility.NEVER)
+                zoomController.setVisibility(
+                    org.osmdroid.views.CustomZoomButtonsController.Visibility.NEVER
+                )
                 val polyline = Polyline().apply {
                     setPoints(gpsPoints)
                     outlinePaint.color = android.graphics.Color.argb(
@@ -159,25 +210,57 @@ fun TopBar(title: String, onBack: () -> Unit, onDelete: () -> Unit) {
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title            = { Text("Obriši aktivnost") },
-            text             = { Text("Da li ste sigurni?") },
-            confirmButton    = { TextButton(onClick = onDelete) { Text("Obriši", color = MaterialTheme.colorScheme.error) } },
-            dismissButton    = { TextButton(onClick = { showDeleteDialog = false }) { Text("Odustani") } }
+            title            = { Text(stringResource(R.string.detail_delete_title)) },
+            text             = { Text(stringResource(R.string.detail_delete_confirm_text)) },
+            confirmButton    = {
+                TextButton(onClick = onDelete) {
+                    Text(
+                        stringResource(R.string.detail_delete_confirm),
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            dismissButton    = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text(stringResource(R.string.detail_delete_cancel))
+                }
+            }
         )
     }
 
-    Row(modifier = Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Nazad") }
-        Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)
+    Row(
+        modifier          = Modifier.fillMaxWidth().padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = onBack) {
+            Icon(Icons.Default.ArrowBack, stringResource(R.string.detail_back))
+        }
+        Text(
+            title,
+            style      = MaterialTheme.typography.headlineSmall,
+            modifier   = Modifier.weight(1f),
+            fontWeight = FontWeight.Bold
+        )
         IconButton(onClick = { showDeleteDialog = true }) {
-            Icon(Icons.Default.Delete, "Obrisi", tint = MaterialTheme.colorScheme.error)
+            Icon(
+                Icons.Default.Delete,
+                stringResource(R.string.detail_delete),
+                tint = MaterialTheme.colorScheme.error
+            )
         }
     }
 }
 
 @Composable
-fun DetailRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+fun DetailRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    value: String
+) {
+    Row(
+        verticalAlignment     = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
         Column {
             Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -18,13 +18,13 @@ class FitnessApp : Application() {
 
         val trackingChannel = NotificationChannel(
             CHANNEL_TRACKING,
-            "Praćenje aktivnosti",
+            getString(R.string.notif_channel_tracking),
             NotificationManager.IMPORTANCE_LOW
         )
 
         val reminderChannel = NotificationChannel(
             CHANNEL_REMINDER,
-            "Podsjetnici",
+            getString(R.string.notif_channel_reminder),
             NotificationManager.IMPORTANCE_DEFAULT
         )
 

@@ -1,19 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    FALLBACK file — English.
--->
 <resources>
     <string name="app_name">Fitness Tracker</string>
+
+    <!-- Activity types -->
     <string name="type_running">Running</string>
     <string name="type_walking">Walking</string>
     <string name="type_cycling">Cycling</string>
     <string name="type_swimming">Swimming</string>
     <string name="type_other">Other</string>
+
+    <!-- Bottom nav -->
     <string name="nav_home">Home</string>
     <string name="nav_training">Workout</string>
     <string name="nav_history">History</string>
     <string name="nav_statistics">Statistics</string>
     <string name="nav_settings">Settings</string>
+
+    <!-- Dashboard -->
     <string name="dashboard_title">Fitness Tracker</string>
     <string name="dashboard_today_progress">Today\'s Progress</string>
     <string name="dashboard_activities">Activities</string>
@@ -23,6 +26,8 @@
     <string name="dashboard_see_all">See All</string>
     <string name="dashboard_no_activities">No recorded activities</string>
     <string name="dashboard_goal_of">of %.0f %s</string>
+
+    <!-- Tracking Screen -->
     <string name="tracking_new">New Workout</string>
     <string name="tracking_in_progress">Workout in Progress</string>
     <string name="tracking_paused_title">Workout Paused</string>
@@ -36,12 +41,16 @@
     <string name="tracking_speed_current">CURRENT</string>
     <string name="tracking_speed_avg">AVERAGE</string>
     <string name="tracking_kcal">KCAL</string>
+
+    <!-- Save dialog -->
     <string name="save_activity">Save Activity</string>
     <string name="save_duration">Duration: %s</string>
     <string name="save_distance">Distance: %s</string>
     <string name="save_description_hint">Description</string>
     <string name="save_confirm">Save</string>
     <string name="save_discard">Discard</string>
+
+    <!-- Permission dialogs -->
     <string name="perm_location_title">Location Permission</string>
     <string name="perm_location_text">The app uses location for accurate tracking. You can enable it in Settings or continue without it.</string>
     <string name="perm_settings">Settings</string>
@@ -50,6 +59,8 @@
     <string name="gps_off_text">Without GPS we won\'t be able to measure distance and route, only workout duration. Do you want to enable GPS?</string>
     <string name="gps_enable">Enable GPS</string>
     <string name="gps_continue_without">Continue Without GPS</string>
+
+    <!-- History Screen -->
     <string name="history_title">History</string>
     <string name="history_search_hint">Search...</string>
     <string name="history_filter">Filter</string>
@@ -63,6 +74,23 @@
     <string name="history_delete_text">Are you sure you want to delete %d activity(s)?</string>
     <string name="history_delete_confirm">Delete</string>
     <string name="history_cancel">Cancel</string>
+    <string name="history_filters">Filters</string>
+    <string name="history_clear_filters">Clear filters</string>
+    <string name="history_filter_type">Activity type</string>
+    <string name="history_filter_all">All</string>
+    <string name="history_filter_min_distance">Minimum distance (%s)</string>
+    <string name="history_filter_distance_hint">e.g. 5.0</string>
+    <string name="history_filter_date_range">Date range</string>
+    <string name="history_filter_date_from">From</string>
+    <string name="history_filter_date_to">To</string>
+    <string name="history_filter_date_today">Today</string>
+    <string name="history_filter_date_week">7 days</string>
+    <string name="history_filter_date_month">30 days</string>
+    <string name="history_filter_date_3months">90 days</string>
+    <string name="history_filter_apply">Apply</string>
+
+
+    <!-- Statistics Screen -->
     <string name="stats_title">Statistics</string>
     <string name="stats_activities">Activities</string>
     <string name="stats_total">Total (%s)</string>
@@ -71,6 +99,8 @@
     <string name="stats_no_data">Not enough data to display chart</string>
     <string name="stats_no_activities">No recorded activities</string>
     <string name="stats_activity_count">%d activities</string>
+
+    <!-- Activity Detail Screen -->
     <string name="detail_map_unavailable">Map not available for this activity</string>
     <string name="detail_stats_title">Statistics</string>
     <string name="detail_duration">Duration</string>
@@ -84,6 +114,8 @@
     <string name="detail_delete_confirm_text">Are you sure?</string>
     <string name="detail_delete_confirm">Delete</string>
     <string name="detail_delete_cancel">Cancel</string>
+
+    <!-- Settings Screen -->
     <string name="settings_title">Settings</string>
     <string name="settings_language">Language</string>
     <string name="settings_lang_sr">Srpski</string>
@@ -104,27 +136,14 @@
     <string name="settings_author">Author</string>
     <string name="settings_author_value">ETF Banja Luka</string>
     <string name="settings_version_value">1.0.0</string>
+
+    <!-- Notifications -->
     <string name="notif_tracking_title">Workout in Progress</string>
     <string name="notif_tracking_text">Tracking your results…</string>
     <string name="notif_reminder_title">Time to get active!</string>
     <string name="notif_reminder_text">You haven\'t been active in over 48 hours. Time for a workout!</string>
     <string name="notif_channel_tracking">Activity Tracking</string>
     <string name="notif_channel_reminder">Reminders</string>
-
-    <string name="history_filters">Filters</string>
-    <string name="history_clear_filters">Clear filters</string>
-    <string name="history_filter_type">Activity type</string>
-    <string name="history_filter_all">All</string>
-    <string name="history_filter_min_distance">Minimum distance (%s)</string>
-    <string name="history_filter_distance_hint">e.g. 5.0</string>
-    <string name="history_filter_date_range">Date range</string>
-    <string name="history_filter_date_from">From</string>
-    <string name="history_filter_date_to">To</string>
-    <string name="history_filter_date_today">Today</string>
-    <string name="history_filter_date_week">7 days</string>
-    <string name="history_filter_date_month">30 days</string>
-    <string name="history_filter_date_3months">90 days</string>
-    <string name="history_filter_apply">Apply</string>
 
     <!-- My stats in Settings -->
     <string name="settings_profile">My stats</string>

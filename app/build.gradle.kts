@@ -69,6 +69,7 @@ dependencies {
 
     implementation(libs.play.services.location)
     implementation("androidx.compose.runtime:runtime-livedata:1.7.6")
+    implementation("androidx.appcompat:appcompat:1.7.0")
 
     implementation(libs.androidx.work)
     implementation(libs.androidx.datastore)

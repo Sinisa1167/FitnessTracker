@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Fitness Tracker</string>
+
+    <!-- Activity types (internal keys — keep consistent with DEFAULT_GOALS keys) -->
+    <string name="type_running">Trčanje</string>
+    <string name="type_walking">Hodanje</string>
+    <string name="type_cycling">Biciklizam</string>
+    <string name="type_swimming">Plivanje</string>
+    <string name="type_other">Ostalo</string>
+
+    <!-- Bottom nav -->
+    <string name="nav_home">Početna</string>
+    <string name="nav_training">Trening</string>
+    <string name="nav_history">Istorija</string>
+    <string name="nav_statistics">Statistika</string>
+    <string name="nav_settings">Podešavanja</string>
+
+    <!-- Dashboard -->
+    <string name="dashboard_title">Fitness Tracker</string>
+    <string name="dashboard_today_progress">Današnji napredak</string>
+    <string name="dashboard_activities">Aktivnosti</string>
+    <string name="dashboard_calories">Kalorije</string>
+    <string name="dashboard_start_activity">Započni aktivnost</string>
+    <string name="dashboard_recent_activities">Nedavne aktivnosti</string>
+    <string name="dashboard_see_all">Vidi sve</string>
+    <string name="dashboard_no_activities">Nema zabilježenih aktivnosti</string>
+    <string name="dashboard_goal_of">od %.0f %s</string>
+
+    <!-- Tracking Screen -->
+    <string name="tracking_new">Novi trening</string>
+    <string name="tracking_in_progress">Trening u toku</string>
+    <string name="tracking_paused_title">Trening pauziran</string>
+    <string name="tracking_gps_off">GPS je isključen. Distanca neće biti mjerena.</string>
+    <string name="tracking_paused_banner">Trening je pauziran</string>
+    <string name="tracking_select_activity">Odaberi aktivnost</string>
+    <string name="tracking_start">ZAPOČNI</string>
+    <string name="tracking_pause">PAUZA</string>
+    <string name="tracking_resume">NASTAVI</string>
+    <string name="tracking_stop">ZAUSTAVI</string>
+    <string name="tracking_speed_current">TRENUTNA</string>
+    <string name="tracking_speed_avg">PROSJEČNA</string>
+    <string name="tracking_kcal">KCAL</string>
+
+    <!-- Save dialog -->
+    <string name="save_activity">Sačuvaj aktivnost</string>
+    <string name="save_duration">Trajanje: %s</string>
+    <string name="save_distance">Udaljenost: %s</string>
+    <string name="save_description_hint">Opis</string>
+    <string name="save_confirm">Sačuvaj</string>
+    <string name="save_discard">Odbaci</string>
+
+    <!-- Permission dialogs -->
+    <string name="perm_location_title">Dozvola za lokaciju</string>
+    <string name="perm_location_text">Aplikacija koristi lokaciju za precizno praćenje. Možete je omogućiti u podešavanjima ili nastaviti bez nje.</string>
+    <string name="perm_settings">Podešavanja</string>
+    <string name="perm_continue_without">Nastavi bez dozvole</string>
+    <string name="gps_off_title">Lokacija isključena</string>
+    <string name="gps_off_text">Bez GPS-a nećemo moći mjeriti distancu i rutu, već samo trajanje treninga. Želite li ipak uključiti GPS?</string>
+    <string name="gps_enable">Uključi GPS</string>
+    <string name="gps_continue_without">Nastavi bez GPS-a</string>
+
+    <!-- History Screen -->
+    <string name="history_title">Istorija</string>
+    <string name="history_search_hint">Pretraži...</string>
+    <string name="history_filter">Filter</string>
+    <string name="history_all_activities">Sve aktivnosti</string>
+    <string name="history_selected">%d odabrano</string>
+    <string name="history_cancel_selection">Otkaži selekciju</string>
+    <string name="history_deselect_all">Poništi sve</string>
+    <string name="history_select_all">Sve</string>
+    <string name="history_empty">Nema aktivnosti</string>
+    <string name="history_delete_title">Obriši aktivnosti</string>
+    <string name="history_delete_text">Da li ste sigurni da želite obrisati %d aktivnost(i)?</string>
+    <string name="history_delete_confirm">Obriši</string>
+    <string name="history_cancel">Odustani</string>
+    <string name="history_filters">Filteri</string>
+    <string name="history_clear_filters">Očisti filtere</string>
+    <string name="history_filter_type">Tip aktivnosti</string>
+    <string name="history_filter_all">Sve</string>
+    <string name="history_filter_min_distance">Minimalna distanca (%s)</string>
+    <string name="history_filter_distance_hint">Npr. 5.0</string>
+    <string name="history_filter_date_range">Vremenski period</string>
+    <string name="history_filter_date_from">Od</string>
+    <string name="history_filter_date_to">Do</string>
+    <string name="history_filter_date_today">Danas</string>
+    <string name="history_filter_date_week">7 dana</string>
+    <string name="history_filter_date_month">30 dana</string>
+    <string name="history_filter_date_3months">90 dana</string>
+    <string name="history_filter_apply">Primijeni</string>
+
+
+
+    <!-- Statistics Screen -->
+    <string name="stats_title">Statistika</string>
+    <string name="stats_activities">Aktivnosti</string>
+    <string name="stats_total">Ukupno (%s)</string>
+    <string name="stats_last7days">Udaljenost (zadnjih 7 dana)</string>
+    <string name="stats_by_type">Aktivnosti po tipu</string>
+    <string name="stats_no_data">Nema dovoljno podataka za prikaz grafikona</string>
+    <string name="stats_no_activities">Nema zabilježenih aktivnosti</string>
+    <string name="stats_activity_count">%d aktivnosti</string>
+
+    <!-- Activity Detail Screen -->
+    <string name="detail_map_unavailable">Mapa nije dostupna za ovu aktivnost</string>
+    <string name="detail_stats_title">Statistika</string>
+    <string name="detail_duration">Trajanje</string>
+    <string name="detail_distance">Udaljenost</string>
+    <string name="detail_speed">Brzina</string>
+    <string name="detail_date">Datum</string>
+    <string name="detail_description">Opis</string>
+    <string name="detail_back">Nazad</string>
+    <string name="detail_delete">Obrisi</string>
+    <string name="detail_delete_title">Obriši aktivnost</string>
+    <string name="detail_delete_confirm_text">Da li ste sigurni?</string>
+    <string name="detail_delete_confirm">Obriši</string>
+    <string name="detail_delete_cancel">Odustani</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_title">Podešavanja</string>
+    <string name="settings_language">Jezik</string>
+    <string name="settings_lang_sr">Srpski</string>
+    <string name="settings_lang_en">English</string>
+    <string name="settings_units">Jedinice mjere</string>
+    <string name="settings_units_km">Kilometri (km)</string>
+    <string name="settings_units_mi">Milje (mi)</string>
+    <string name="settings_notifications">Notifikacije</string>
+    <string name="settings_reminders">Podsjetnici za aktivnost</string>
+    <string name="settings_reminders_desc">Obavijesti ako nisi aktivan duže vrijeme</string>
+    <string name="settings_goals">Dnevni ciljevi</string>
+    <string name="settings_goal_distance">Ciljna udaljenost</string>
+    <string name="settings_goal_duration">Ciljno trajanje</string>
+    <string name="settings_goal_distance_value">%.0f km (%.0f mi)</string>
+    <string name="settings_goal_duration_value">%.0f min</string>
+    <string name="settings_about">O aplikaciji</string>
+    <string name="settings_version">Verzija</string>
+    <string name="settings_author">Autor</string>
+    <string name="settings_author_value">ETF Banja Luka</string>
+    <string name="settings_version_value">1.0.0</string>
+
+    <!-- Notifications -->
+    <string name="notif_tracking_title">Trening u toku</string>
+    <string name="notif_tracking_text">Mjerimo vaše rezultate...</string>
+    <string name="notif_reminder_title">Vrijeme za aktivnost!</string>
+    <string name="notif_reminder_text">Nisi bio aktivan duže od 48 sati. Hajde na trening!</string>
+    <string name="notif_channel_tracking">Praćenje aktivnosti</string>
+    <string name="notif_channel_reminder">Podsjetnici</string>
+
+    <!-- Moje mjere u Settings -->
+    <string name="settings_profile">Moje mjere</string>
+    <string name="settings_profile_weight">Tjelesna masa</string>
+    <string name="settings_profile_height">Visina</string>
+    <string name="settings_profile_age">Godine</string>
+    <string name="settings_profile_age_unit">god.</string>
+    <string name="settings_profile_sex">Spol</string>
+    <string name="settings_profile_male">Muški</string>
+    <string name="settings_profile_female">Ženski</string>
+    <string name="settings_profile_save">Sačuvaj mjere</string>
+
+    <string name="settings_system_title">Sistemska podešavanja</string>
+    <string name="settings_profile_save_success">Uspješno sačuvano!</string>
+
+    <!-- Kalorija dialog na Dashboardu -->
+    <string name="dashboard_calories_dialog_title">Neprecizna procjena</string>
+    <string name="dashboard_calories_dialog_text">Nisi podesio/la svoje mjere. Kalorije se računaju na osnovu prosječne tjelesne mase (75 kg). Za precizniji rezultat, unesi svoje podatke u Postavke.</string>
+    <string name="dashboard_calories_dialog_go">Idi na Postavke</string>
+    <string name="dashboard_calories_dialog_dismiss">U redu</string>
+</resources>

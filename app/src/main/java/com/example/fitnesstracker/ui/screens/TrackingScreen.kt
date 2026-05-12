@@ -24,6 +24,7 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,9 +33,14 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
+import com.example.fitnesstracker.R
+import com.example.fitnesstracker.data.calculateCalories
 import com.example.fitnesstracker.data.model.Activity
 import com.example.fitnesstracker.service.TrackingService
 import com.example.fitnesstracker.ui.ActivityViewModel
+
+// Internal keys / database.
+val ACTIVITY_TYPE_KEYS = listOf("Trčanje", "Hodanje", "Biciklizam", "Plivanje", "Ostalo")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,10 +53,12 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
     val distanceMeters  by TrackingService.distanceMeters.observeAsState(0f)
     val elapsedSeconds  by TrackingService.elapsedSeconds.observeAsState(0L)
     val currentSpeedKmh by TrackingService.currentSpeedKmh.observeAsState(0f)
-    val units           by viewModel.units.collectAsState()
-    val useKm            = units == "km"
+    val units       by viewModel.units.collectAsState()
+    val userProfile by viewModel.userProfile.collectAsState()
+    val useKm        = units == "km"
 
-    val avgSpeedKmh = if (elapsedSeconds > 0) (distanceMeters / 1000f) / (elapsedSeconds / 3600f) else 0f
+    val avgSpeedKmh = if (elapsedSeconds > 0)
+        (distanceMeters / 1000f) / (elapsedSeconds / 3600f) else 0f
 
     val distanceDisplay = if (useKm) distanceMeters / 1000f else distanceMeters / 1609f
     val distanceUnit    = if (useKm) "KM" else "MI"
@@ -58,15 +66,16 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
     val currentSpeed    = if (useKm) currentSpeedKmh else currentSpeedKmh * 0.621371f
     val avgSpeed        = if (useKm) avgSpeedKmh else avgSpeedKmh * 0.621371f
 
-    var selectedType                  by remember { mutableStateOf("Trčanje") }
+    var selectedType   by remember { mutableStateOf("Trčanje") }
+    val caloriesBurned = calculateCalories(selectedType, elapsedSeconds, userProfile)
     var description                   by remember { mutableStateOf("") }
     var showSaveDialog                by remember { mutableStateOf(false) }
     var showPermissionDialog          by remember { mutableStateOf(false) }
     var showLocationExplanationDialog by remember { mutableStateOf(false) }
 
-    val activityTypes   = listOf("Trčanje", "Hodanje", "Biciklizam", "Plivanje", "Ostalo")
-    val locationManager = remember { context.getSystemService(Context.LOCATION_SERVICE) as LocationManager }
-
+    val locationManager = remember {
+        context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+    }
     var isLocationEnabled by remember {
         mutableStateOf(locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER))
     }
@@ -98,71 +107,79 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
         else showPermissionDialog = true
     }
 
+    // GPS disabled dialog
     if (showLocationExplanationDialog) {
         AlertDialog(
             onDismissRequest = { showLocationExplanationDialog = false },
             icon    = { Icon(Icons.Default.LocationOn, contentDescription = null) },
-            title   = { Text("Lokacija isključena") },
-            text    = { Text("Bez GPS-a nećemo moći mjeriti distancu i rutu, već samo trajanje treninga. Želite li ipak uključiti GPS?") },
+            title   = { Text(stringResource(R.string.gps_off_title)) },
+            text    = { Text(stringResource(R.string.gps_off_text)) },
             confirmButton = {
                 Button(onClick = {
                     showLocationExplanationDialog = false
                     context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
-                }) { Text("Uključi GPS") }
+                }) { Text(stringResource(R.string.gps_enable)) }
             },
             dismissButton = {
                 TextButton(onClick = {
                     showLocationExplanationDialog = false
                     checkNotificationsAndStart(context, notificationLauncher)
-                }) { Text("Nastavi bez GPS-a") }
+                }) { Text(stringResource(R.string.gps_continue_without)) }
             }
         )
     }
 
+    // Location permission denied dialog
     if (showPermissionDialog) {
         AlertDialog(
             onDismissRequest = { showPermissionDialog = false },
-            title = { Text("Dozvola za lokaciju") },
-            text  = { Text("Aplikacija koristi lokaciju za precizno praćenje. Možete je omogućiti u podešavanjima ili nastaviti bez nje.") },
+            title = { Text(stringResource(R.string.perm_location_title)) },
+            text  = { Text(stringResource(R.string.perm_location_text)) },
             confirmButton = {
                 Button(onClick = {
                     showPermissionDialog = false
-                    context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = android.net.Uri.fromParts("package", context.packageName, null)
-                    })
-                }) { Text("Podešavanja") }
+                    context.startActivity(
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = android.net.Uri.fromParts("package", context.packageName, null)
+                        }
+                    )
+                }) { Text(stringResource(R.string.perm_settings)) }
             },
             dismissButton = {
                 TextButton(onClick = {
                     showPermissionDialog = false
                     checkNotificationsAndStart(context, notificationLauncher)
-                }) { Text("Nastavi bez dozvole") }
+                }) { Text(stringResource(R.string.perm_continue_without)) }
             }
         )
     }
 
+    // Save dialog
     if (showSaveDialog) {
         AlertDialog(
             onDismissRequest = { showSaveDialog = false },
-            title = { Text("Sačuvaj aktivnost") },
+            title = { Text(stringResource(R.string.save_activity)) },
             text  = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Trajanje: ${formatDuration(elapsedSeconds)}")
-                    Text("Udaljenost: ${"%.2f %s".format(distanceDisplay, if (useKm) "km" else "mi")}")
+                    Text(stringResource(R.string.save_duration, formatDuration(elapsedSeconds)))
+                    Text(stringResource(
+                        R.string.save_distance,
+                        "%.2f %s".format(distanceDisplay, if (useKm) "km" else "mi")
+                    ))
                     OutlinedTextField(
                         value         = description,
                         onValueChange = { description = it },
-                        label         = { Text("Opis") },
+                        label         = { Text(stringResource(R.string.save_description_hint)) },
                         modifier      = Modifier.fillMaxWidth()
                     )
                 }
             },
             confirmButton = {
                 Button(onClick = {
-                    val avgSpeed = if (elapsedSeconds > 0) (distanceMeters / 1000f) / (elapsedSeconds / 3600f) else 0f
+                    val avg = if (elapsedSeconds > 0)
+                        (distanceMeters / 1000f) / (elapsedSeconds / 3600f) else 0f
                     val gpsPoints = TrackingService.pathPoints.value
-                        ?.joinToString(";") { "${it.latitude},${it.longitude}" }
-                        ?: ""
+                        ?.joinToString(";") { "${it.latitude},${it.longitude}" } ?: ""
                     viewModel.saveActivity(
                         Activity(
                             type            = selectedType,
@@ -170,7 +187,7 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
                             distanceMeters  = distanceMeters,
                             timestamp       = System.currentTimeMillis(),
                             description     = description,
-                            avgSpeedKmh     = avgSpeed,
+                            avgSpeedKmh     = avg,
                             gpsPoints       = gpsPoints
                         )
                     )
@@ -178,14 +195,17 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
                     navController.navigate("history") {
                         popUpTo("tracking") { inclusive = true }
                     }
-                }) { Text("Sačuvaj") }
+                }) { Text(stringResource(R.string.save_confirm)) }
             },
             dismissButton = {
-                TextButton(onClick = { showSaveDialog = false }) { Text("Odbaci") }
+                TextButton(onClick = { showSaveDialog = false }) {
+                    Text(stringResource(R.string.save_discard))
+                }
             }
         )
     }
 
+    // Main content
     Column(
         modifier            = Modifier
             .fillMaxSize()
@@ -195,9 +215,9 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
     ) {
         Text(
             text = when {
-                isPaused   -> "Trening pauziran"
-                isTracking -> "Trening u toku"
-                else       -> "Novi trening"
+                isPaused   -> stringResource(R.string.tracking_paused_title)
+                isTracking -> stringResource(R.string.tracking_in_progress)
+                else       -> stringResource(R.string.tracking_new)
             },
             style      = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold
@@ -208,7 +228,7 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
                 Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.LocationOff, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
                     Text(
-                        "GPS je isključen. Distanca neće biti mjerena.",
+                        stringResource(R.string.tracking_gps_off),
                         modifier = Modifier.weight(1f),
                         style    = MaterialTheme.typography.bodySmall
                     )
@@ -223,12 +243,23 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
                     verticalAlignment     = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    Icon(Icons.Default.Pause, contentDescription = null, modifier = Modifier.padding(end = 8.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
-                    Text("Trening je pauziran", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    Icon(
+                        Icons.Default.Pause,
+                        contentDescription = null,
+                        modifier = Modifier.padding(end = 8.dp),
+                        tint     = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                    Text(
+                        stringResource(R.string.tracking_paused_banner),
+                        style      = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color      = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
                 }
             }
         }
 
+        // Activity type selector
         if (!isTracking) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
@@ -236,11 +267,15 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment     = Alignment.CenterVertically
                 ) {
-                    Text("Odaberi aktivnost", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        stringResource(R.string.tracking_select_activity),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     Icon(
                         imageVector        = Icons.Default.SwapHoriz,
                         contentDescription = null,
-                        modifier           = Modifier.size(16.dp),
+                        modifier           = Modifier.size(20.dp),
                         tint               = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
                 }
@@ -249,21 +284,27 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding        = PaddingValues(horizontal = 4.dp)
                 ) {
-                    items(activityTypes.size) { index ->
-                        val type       = activityTypes[index]
-                        val isSelected = selectedType == type
-                        val color      = getActivityColor(type)
+                    items(ACTIVITY_TYPE_KEYS.size) { index ->
+                        val typeKey    = ACTIVITY_TYPE_KEYS[index]
+                        val isSelected = selectedType == typeKey
+                        val color      = getActivityColor(typeKey)
 
                         FilterChip(
                             selected    = isSelected,
-                            onClick     = { selectedType = type },
-                            label       = { Text(type, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                            onClick     = { selectedType = typeKey },
+                            label       = {
+                                Text(
+                                    activityTypeDisplayName(typeKey),
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            },
                             leadingIcon = {
                                 Icon(
-                                    imageVector        = activityIcon(type),
+                                    imageVector        = activityIcon(typeKey),
                                     contentDescription = null,
                                     modifier           = Modifier.size(18.dp),
-                                    tint               = if (isSelected) color else MaterialTheme.colorScheme.onSurfaceVariant
+                                    tint               = if (isSelected) color
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             },
                             colors = FilterChipDefaults.filterChipColors(
@@ -284,10 +325,13 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
             }
         }
 
+        // Stats card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape    = MaterialTheme.shapes.extraLarge,
-            colors   = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f))
+            colors   = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f)
+            )
         ) {
             Column(
                 modifier            = Modifier.padding(24.dp).fillMaxWidth(),
@@ -299,7 +343,7 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
                     fontSize   = 56.sp,
                     fontWeight = FontWeight.Black,
                     color      = if (isPaused) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                    else         MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onSurface
                 )
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
@@ -307,21 +351,21 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     StatItem(label = distanceUnit, value = "%.2f".format(distanceDisplay))
                     StatDivider()
-                    StatItem(label = "KCAL", value = "${(distanceMeters * 0.05).toInt()}")
+                    StatItem(label = stringResource(R.string.tracking_kcal), value = "$caloriesBurned")
                 }
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     StatItem(
-                        label     = "TRENUTNA",
+                        label     = stringResource(R.string.tracking_speed_current),
                         value     = "%.1f".format(currentSpeed),
                         unit      = speedUnit,
                         highlight = isTracking && !isPaused
                     )
                     StatDivider()
                     StatItem(
-                        label = "PROSJEČNA",
+                        label = stringResource(R.string.tracking_speed_avg),
                         value = "%.1f".format(avgSpeed),
                         unit  = speedUnit
                     )
@@ -329,22 +373,34 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
             }
         }
 
+        // Control buttons
         if (isTracking) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(
                     onClick = {
-                        val action = if (isPaused) TrackingService.ACTION_RESUME else TrackingService.ACTION_PAUSE
-                        context.startService(Intent(context, TrackingService::class.java).apply { this.action = action })
+                        val action = if (isPaused) TrackingService.ACTION_RESUME
+                        else TrackingService.ACTION_PAUSE
+                        context.startService(
+                            Intent(context, TrackingService::class.java).apply { this.action = action }
+                        )
                     },
                     modifier = Modifier.weight(1f).height(64.dp),
                     colors   = ButtonDefaults.buttonColors(
-                        containerColor = if (isPaused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
+                        containerColor = if (isPaused) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.secondary
                     ),
                     shape = MaterialTheme.shapes.large
                 ) {
-                    Icon(if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause, contentDescription = null)
+                    Icon(
+                        if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                        contentDescription = null
+                    )
                     Spacer(Modifier.width(8.dp))
-                    Text(if (isPaused) "NASTAVI" else "PAUZA", fontWeight = FontWeight.Bold)
+                    Text(
+                        if (isPaused) stringResource(R.string.tracking_resume)
+                        else          stringResource(R.string.tracking_pause),
+                        fontWeight = FontWeight.Bold
+                    )
                 }
 
                 Button(
@@ -355,32 +411,49 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
                 ) {
                     Icon(Icons.Default.Stop, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("ZAUSTAVI", fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.tracking_stop), fontWeight = FontWeight.Bold)
                 }
             }
         } else {
             Button(
                 onClick = {
-                    val gpsOn         = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
-                    val locPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                    val gpsOn = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+                    val locOk = ContextCompat.checkSelfPermission(
+                        context, Manifest.permission.ACCESS_FINE_LOCATION
+                    ) == PackageManager.PERMISSION_GRANTED
 
                     when {
-                        !gpsOn        -> showLocationExplanationDialog = true
-                        !locPermission -> locationLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
-                        else          -> checkNotificationsAndStart(context, notificationLauncher)
+                        !gpsOn  -> showLocationExplanationDialog = true
+                        !locOk  -> locationLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            )
+                        )
+                        else    -> checkNotificationsAndStart(context, notificationLauncher)
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(64.dp),
                 colors   = ButtonDefaults.buttonColors(containerColor = startButtonColor),
                 shape    = MaterialTheme.shapes.large
             ) {
-                Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(36.dp))
+                Icon(
+                    imageVector        = Icons.Default.PlayArrow,
+                    contentDescription = null,
+                    modifier           = Modifier.size(36.dp)
+                )
                 Spacer(Modifier.width(8.dp))
-                Text("ZAPOČNI", style = MaterialTheme.typography.titleMedium, fontSize = 20.sp)
+                Text(
+                    stringResource(R.string.tracking_start),
+                    style    = MaterialTheme.typography.titleMedium,
+                    fontSize = 20.sp
+                )
             }
         }
     }
 }
+
+// Composable helpers
 
 @Composable
 fun StatItem(
@@ -398,10 +471,16 @@ fun StatItem(
                 value,
                 style      = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color      = if (highlight) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                color      = if (highlight) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurface
             )
             if (unit != null) {
-                Text(unit, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
+                Text(
+                    unit,
+                    style    = MaterialTheme.typography.labelSmall,
+                    color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 2.dp)
+                )
             }
         }
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -421,12 +500,17 @@ fun StatDivider() {
     }
 }
 
+// Private helpers
+
 private fun checkNotificationsAndStart(
     context: Context,
     launcher: androidx.activity.result.ActivityResultLauncher<String>
 ) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(
+                context, Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
             launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
             startTracking(context)
@@ -437,9 +521,13 @@ private fun checkNotificationsAndStart(
 }
 
 private fun startTracking(context: Context) {
-    context.startForegroundService(Intent(context, TrackingService::class.java).apply { action = TrackingService.ACTION_START })
+    context.startForegroundService(
+        Intent(context, TrackingService::class.java).apply { action = TrackingService.ACTION_START }
+    )
 }
 
 private fun stopTracking(context: Context) {
-    context.startService(Intent(context, TrackingService::class.java).apply { action = TrackingService.ACTION_STOP })
+    context.startService(
+        Intent(context, TrackingService::class.java).apply { action = TrackingService.ACTION_STOP }
+    )
 }

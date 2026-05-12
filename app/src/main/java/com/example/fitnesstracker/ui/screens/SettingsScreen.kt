@@ -2,6 +2,7 @@ package com.example.fitnesstracker.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -10,213 +11,401 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.fitnesstracker.LocalAppLang
+import com.example.fitnesstracker.R
 import com.example.fitnesstracker.data.DEFAULT_GOALS
 import com.example.fitnesstracker.data.PreferencesManager
+import com.example.fitnesstracker.data.UserProfile
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen() {
-    val context            = LocalContext.current
-    val preferencesManager = remember { PreferencesManager(context) }
-    val scope              = rememberCoroutineScope()
+    val lang    = LocalAppLang.current
+    val context = LocalContext.current
+    val prefs   = remember { PreferencesManager(context) }
+    val scope   = rememberCoroutineScope()
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    val language            by preferencesManager.language.collectAsState(initial = "sr")
-    val units               by preferencesManager.units.collectAsState(initial = "km")
-    val notificationsEnabled by preferencesManager.notificationsEnabled.collectAsState(initial = true)
-    val allGoals            by preferencesManager.allGoals.collectAsState(initial = emptyMap())
+    val language             by prefs.language.collectAsState(initial = "sr")
+    val units                by prefs.units.collectAsState(initial = "km")
+    val notificationsEnabled by prefs.notificationsEnabled.collectAsState(initial = true)
+    val allGoals             by prefs.allGoals.collectAsState(initial = emptyMap())
+    val userProfile          by prefs.userProfile.collectAsState(initial = null)
 
-    val activityTypes = DEFAULT_GOALS.keys.toList()
-    var selectedGoalType by remember { mutableStateOf(activityTypes.first()) }
+    // Don't render until the first real value arrives — eliminates the label-jump flicker
+    val profile = userProfile ?: return@SettingsScreen
 
-    val currentGoal = allGoals[selectedGoalType]
+    var weightInput by remember(profile.weightKg) {
+        mutableStateOf(if (profile.weightKg > 0f) profile.weightKg.toInt().toString() else "")
+    }
+    var heightInput by remember(profile.heightCm) {
+        mutableStateOf(if (profile.heightCm > 0f) profile.heightCm.toInt().toString() else "")
+    }
+    var ageInput by remember(profile.ageYears) {
+        mutableStateOf(if (profile.ageYears > 0) profile.ageYears.toString() else "")
+    }
+    var selectedSex by remember(profile.isMale) { mutableStateOf(profile.isMale) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text("Podešavanja", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+    val activityTypeKeys = DEFAULT_GOALS.keys.toList()
+    var selectedGoalType by remember { mutableStateOf(activityTypeKeys.first()) }
+    val currentGoal      = allGoals[selectedGoalType]
 
-        SettingsSection(title = "Jezik") {
-            Row(
-                modifier              = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+    // Extract all translatable strings used inside lambdas at this level,
+    // keyed on lang so they refresh instantly when language changes.
+    val labelWeight  = key(lang) { stringResource(R.string.settings_profile_weight) }
+    val labelHeight  = key(lang) { stringResource(R.string.settings_profile_height) }
+    val labelAge     = key(lang) { stringResource(R.string.settings_profile_age) }
+    val labelAgeUnit = key(lang) { stringResource(R.string.settings_profile_age_unit) }
+    val labelSex     = key(lang) { stringResource(R.string.settings_profile_sex) }
+    val labelMale    = key(lang) { stringResource(R.string.settings_profile_male) }
+    val labelFemale  = key(lang) { stringResource(R.string.settings_profile_female) }
+    val labelSave    = key(lang) { stringResource(R.string.settings_profile_save) }
+    val labelSaved   = key(lang) { stringResource(R.string.settings_profile_save_success) }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+                .padding(top = 16.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            // Title matches other screens
+            Text(
+                text       = stringResource(R.string.settings_title),
+                style      = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color      = MaterialTheme.colorScheme.onSurface
+            )
+
+            // ── Moje mjere ────────────────────────────────────────────────────
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors   = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                )
             ) {
-                FilterChip(
-                    selected = language == "sr",
-                    onClick  = { scope.launch { preferencesManager.setLanguage("sr") } },
-                    label    = { Text("Srpski") },
-                    modifier = Modifier.weight(1f)
-                )
-                FilterChip(
-                    selected = language == "en",
-                    onClick  = { scope.launch { preferencesManager.setLanguage("en") } },
-                    label    = { Text("English") },
-                    modifier = Modifier.weight(1f)
-                )
+                Column(
+                    modifier            = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        verticalAlignment     = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Text(
+                            text       = stringResource(R.string.settings_profile),
+                            style      = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value           = weightInput,
+                            onValueChange   = { weightInput = it },
+                            label           = { Text(labelWeight) },
+                            suffix          = { Text("kg") },
+                            modifier        = Modifier.weight(1f),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            singleLine      = true
+                        )
+                        OutlinedTextField(
+                            value           = heightInput,
+                            onValueChange   = { heightInput = it },
+                            label           = { Text(labelHeight) },
+                            suffix          = { Text("cm") },
+                            modifier        = Modifier.weight(1f),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            singleLine      = true
+                        )
+                    }
+
+                    OutlinedTextField(
+                        value           = ageInput,
+                        onValueChange   = { ageInput = it },
+                        label           = { Text(labelAge) },
+                        suffix          = { Text(labelAgeUnit) },
+                        modifier        = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine      = true
+                    )
+
+                    Text(labelSex, style = MaterialTheme.typography.labelLarge)
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        SegmentedButton(
+                            selected = selectedSex == true,
+                            onClick  = { selectedSex = true },
+                            shape    = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                        ) { Text(labelMale) }
+                        SegmentedButton(
+                            selected = selectedSex == false,
+                            onClick  = { selectedSex = false },
+                            shape    = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
+                        ) { Text(labelFemale) }
+                    }
+
+                    Button(
+                        onClick = {
+                            keyboardController?.hide()
+                            scope.launch {
+                                prefs.saveUserProfile(
+                                    UserProfile(
+                                        weightKg = weightInput.toFloatOrNull() ?: 0f,
+                                        heightCm = heightInput.toFloatOrNull() ?: 0f,
+                                        ageYears = ageInput.toIntOrNull() ?: 0,
+                                        isMale   = selectedSex
+                                    )
+                                )
+                                snackbarHostState.showSnackbar(labelSaved)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape    = MaterialTheme.shapes.medium
+                    ) {
+                        Icon(Icons.Default.Save, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(labelSave)
+                    }
+                }
             }
-        }
 
-        SettingsSection(title = "Jedinice mjere") {
-            Row(
-                modifier              = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            // ── Dnevni ciljevi ────────────────────────────────────────────────
+            SettingsSection(
+                title = stringResource(R.string.settings_goals),
+                icon  = Icons.Default.Flag
             ) {
-                FilterChip(
-                    selected = units == "km",
-                    onClick  = { scope.launch { preferencesManager.setUnits("km") } },
-                    label    = { Text("Kilometri (km)") },
-                    modifier = Modifier.weight(1f)
-                )
-                FilterChip(
-                    selected = units == "mi",
-                    onClick  = { scope.launch { preferencesManager.setUnits("mi") } },
-                    label    = { Text("Milje (mi)") },
-                    modifier = Modifier.weight(1f)
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    androidx.compose.foundation.lazy.LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(activityTypeKeys.size) { index ->
+                            val typeKey = activityTypeKeys[index]
+                            FilterChip(
+                                selected    = selectedGoalType == typeKey,
+                                onClick     = { selectedGoalType = typeKey },
+                                label       = { Text(activityTypeDisplayName(typeKey)) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector        = activityIcon(typeKey),
+                                        contentDescription = null,
+                                        modifier           = Modifier.size(18.dp)
+                                    )
+                                }
+                            )
+                        }
+                    }
+
+                    currentGoal?.let { goal ->
+                        // Distance slider — step 1 km, shows km + mi
+                        var distanceSlider by remember(goal.distanceKm) { mutableFloatStateOf(goal.distanceKm) }
+                        Row(
+                            modifier              = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment     = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment     = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Route, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Text(stringResource(R.string.settings_goal_distance), style = MaterialTheme.typography.bodyLarge)
+                            }
+                            Text(
+                                text       = "%.0f km (%.1f mi)".format(
+                                    distanceSlider,
+                                    distanceSlider * 0.621371f
+                                ),
+                                style      = MaterialTheme.typography.titleMedium,
+                                color      = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Slider(
+                            value       = distanceSlider,
+                            onValueChange = { distanceSlider = it },
+                            onValueChangeFinished = {
+                                val rounded = distanceSlider.toInt().toFloat().coerceIn(1f, 50f)
+                                distanceSlider = rounded
+                                scope.launch { prefs.setGoalDistance(selectedGoalType, rounded) }
+                            },
+                            valueRange  = 1f..50f,
+                            steps       = 0
+                        )
+
+                        HorizontalDivider()
+
+                        // Duration slider — step 5 min
+                        var durationSlider by remember(goal.durationMin) { mutableFloatStateOf(goal.durationMin) }
+                        Row(
+                            modifier              = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment     = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment     = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Timer, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Text(stringResource(R.string.settings_goal_duration), style = MaterialTheme.typography.bodyLarge)
+                            }
+                            Text(
+                                text       = "%.0f min".format(durationSlider),
+                                style      = MaterialTheme.typography.titleMedium,
+                                color      = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Slider(
+                            value       = durationSlider,
+                            onValueChange = { durationSlider = it },
+                            onValueChangeFinished = {
+                                val rounded = (kotlin.math.round(durationSlider / 5f) * 5f).coerceIn(5f, 180f)
+                                durationSlider = rounded
+                                scope.launch { prefs.setGoalDuration(selectedGoalType, rounded) }
+                            },
+                            valueRange  = 5f..180f,
+                            steps       = 0
+                        )
+                    }
+                }
             }
-        }
 
-        SettingsSection(title = "Notifikacije") {
-            Row(
-                modifier              = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment     = Alignment.CenterVertically
+            // ── Sistemska podešavanja ─────────────────────────────────────────
+            SettingsSection(
+                title = stringResource(R.string.settings_system_title),
+                icon  = Icons.Default.Settings
             ) {
-                Column {
-                    Text("Podsjetnici za aktivnost", style = MaterialTheme.typography.bodyLarge)
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                stringResource(R.string.settings_reminders),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Text(
+                                stringResource(R.string.settings_reminders_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked         = notificationsEnabled,
+                            onCheckedChange = { scope.launch { prefs.setNotifications(it) } }
+                        )
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(stringResource(R.string.settings_units), style = MaterialTheme.typography.labelLarge)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = units == "km",
+                                onClick  = { scope.launch { prefs.setUnits("km") } },
+                                label    = { Text(stringResource(R.string.settings_units_km)) },
+                                modifier = Modifier.weight(1f)
+                            )
+                            FilterChip(
+                                selected = units == "mi",
+                                onClick  = { scope.launch { prefs.setUnits("mi") } },
+                                label    = { Text(stringResource(R.string.settings_units_mi)) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(stringResource(R.string.settings_language), style = MaterialTheme.typography.labelLarge)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = language == "sr",
+                                onClick  = { scope.launch { prefs.setLanguage("sr") } },
+                                label    = { Text(stringResource(R.string.settings_lang_sr)) },
+                                modifier = Modifier.weight(1f)
+                            )
+                            FilterChip(
+                                selected = language == "en",
+                                onClick  = { scope.launch { prefs.setLanguage("en") } },
+                                label    = { Text(stringResource(R.string.settings_lang_en)) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ── O aplikaciji ──────────────────────────────────────────────────
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors   = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                )
+            ) {
+                Column(
+                    modifier            = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     Text(
-                        "Obavijesti ako nisi aktivan duže vrijeme",
-                        style = MaterialTheme.typography.bodySmall,
+                        "Fitness Tracker v${stringResource(R.string.settings_version_value)}",
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                    Text(
+                        stringResource(R.string.settings_author_value),
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Switch(
-                    checked         = notificationsEnabled,
-                    onCheckedChange = { scope.launch { preferencesManager.setNotifications(it) } }
-                )
             }
         }
-
-        SettingsSection(title = "Dnevni ciljevi") {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                androidx.compose.foundation.lazy.LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(activityTypes.size) { index ->
-                        val type       = activityTypes[index]
-                        val isSelected = selectedGoalType == type
-                        FilterChip(
-                            selected     = isSelected,
-                            onClick      = { selectedGoalType = type },
-                            label        = { Text(type) },
-                            leadingIcon  = {
-                                Icon(
-                                    imageVector        = activityIcon(type),
-                                    contentDescription = null,
-                                    modifier           = Modifier.size(16.dp)
-                                )
-                            }
-                        )
-                    }
-                }
-
-                if (currentGoal != null) {
-                    Row(
-                        modifier              = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment     = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment     = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Default.Route, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            Text("Ciljna udaljenost", style = MaterialTheme.typography.bodyLarge)
-                        }
-                        Text(
-                            "%.0f km (%.0f mi)".format(currentGoal.distanceKm, currentGoal.distanceKm * 0.621371f),
-                            style      = MaterialTheme.typography.titleMedium,
-                            color      = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    Slider(
-                        value         = currentGoal.distanceKm,
-                        onValueChange = { scope.launch { preferencesManager.setGoalDistance(selectedGoalType, it) } },
-                        valueRange    = 1f..50f,
-                        steps         = 48
-                    )
-
-                    HorizontalDivider()
-
-                    Row(
-                        modifier              = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment     = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment     = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Default.Timer, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            Text("Ciljno trajanje", style = MaterialTheme.typography.bodyLarge)
-                        }
-                        Text(
-                            "%.0f min".format(currentGoal.durationMin),
-                            style      = MaterialTheme.typography.titleMedium,
-                            color      = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    Slider(
-                        value         = currentGoal.durationMin,
-                        onValueChange = { scope.launch { preferencesManager.setGoalDuration(selectedGoalType, it) } },
-                        valueRange    = 5f..180f,
-                        steps         = 34
-                    )
-                }
-            }
-        }
-
-        SettingsSection(title = "O aplikaciji") {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    modifier              = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("Verzija", style = MaterialTheme.typography.bodyLarge)
-                    Text("1.0.0", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Row(
-                    modifier              = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("Autor", style = MaterialTheme.typography.bodyLarge)
-                    Text("ETF Banja Luka", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier  = Modifier.align(Alignment.BottomCenter)
+        )
     }
 }
 
 @Composable
-fun SettingsSection(title: String, content: @Composable () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+fun SettingsSection(
+    title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    content: @Composable () -> Unit
+) {
+    Card(
+        modifier  = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
         Column(
             modifier            = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(
-                text       = title,
-                style      = MaterialTheme.typography.titleMedium,
-                color      = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.SemiBold
-            )
+            Row(
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector        = icon,
+                    contentDescription = null,
+                    tint               = MaterialTheme.colorScheme.primary,
+                    modifier           = Modifier.size(20.dp)
+                )
+                Text(
+                    text       = title,
+                    style      = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
             HorizontalDivider()
             content()
         }

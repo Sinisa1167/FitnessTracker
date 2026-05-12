@@ -7,6 +7,7 @@ import com.example.fitnesstracker.data.ActivityGoal
 import com.example.fitnesstracker.data.DEFAULT_GOALS
 import com.example.fitnesstracker.data.PreferencesManager
 import com.example.fitnesstracker.data.Repository
+import com.example.fitnesstracker.data.UserProfile
 import com.example.fitnesstracker.data.model.Activity
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -29,6 +30,9 @@ class ActivityViewModel(application: Application) : AndroidViewModel(application
 
     val units: StateFlow<String> = prefs.units
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "km")
+
+    val userProfile: StateFlow<UserProfile> = prefs.userProfile
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserProfile())
 
     val activities: StateFlow<List<Activity>> = _filterType
         .flatMapLatest { type ->
