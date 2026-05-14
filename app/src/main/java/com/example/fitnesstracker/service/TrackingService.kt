@@ -31,10 +31,11 @@ class TrackingService : LifecycleService() {
         val elapsedSeconds  = MutableLiveData(0L)
         val currentSpeedKmh = MutableLiveData(0f)
 
-        const val ACTION_START  = "ACTION_START"
-        const val ACTION_STOP   = "ACTION_STOP"
-        const val ACTION_PAUSE  = "ACTION_PAUSE"
-        const val ACTION_RESUME = "ACTION_RESUME"
+        const val ACTION_START      = "ACTION_START"
+        const val ACTION_STOP       = "ACTION_STOP"
+        const val ACTION_PAUSE      = "ACTION_PAUSE"
+        const val ACTION_RESUME     = "ACTION_RESUME"
+        const val EXTRA_NAVIGATE_TO = "navigate_to"
     }
 
     override fun onCreate() {
@@ -157,7 +158,10 @@ class TrackingService : LifecycleService() {
     private fun buildNotification(): Notification {
         val pendingIntent = PendingIntent.getActivity(
             this, 0,
-            Intent(this, MainActivity::class.java),
+            Intent(this, MainActivity::class.java).apply {
+                putExtra(EXTRA_NAVIGATE_TO, "tracking")
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
         return NotificationCompat.Builder(this, FitnessApp.CHANNEL_TRACKING)

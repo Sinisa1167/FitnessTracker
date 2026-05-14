@@ -1,5 +1,6 @@
 package com.example.fitnesstracker
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -47,11 +48,20 @@ private val NAV_LABELS = mapOf(
 
 class MainActivity : ComponentActivity() {
 
+    private var pendingNavRoute: String? = null
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        pendingNavRoute = intent.getStringExtra(com.example.fitnesstracker.service.TrackingService.EXTRA_NAVIGATE_TO)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         val initialLang = runBlocking {
             PreferencesManager(applicationContext).language.first()
         }
         applyLocale(initialLang)
+        pendingNavRoute = intent.getStringExtra(com.example.fitnesstracker.service.TrackingService.EXTRA_NAVIGATE_TO)
 
         super.onCreate(savedInstanceState)
 
@@ -69,6 +79,17 @@ class MainActivity : ComponentActivity() {
                     val viewModel: ActivityViewModel = viewModel()
                     val navBackStackEntry by navController.currentBackStackEntryAsState()
                     val currentDestination = navBackStackEntry?.destination
+
+                    LaunchedEffect(Unit) {
+                        pendingNavRoute?.let { route ->
+                            pendingNavRoute = null
+                            navController.navigate(route) {
+                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    }
 
                     val lang = LocalAppLang.current
                     val navLabels = NAV_LABELS[lang] ?: NAV_LABELS["sr"]!!

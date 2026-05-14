@@ -1,9 +1,12 @@
 package com.example.fitnesstracker.ui.screens
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -23,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -140,366 +144,418 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
         )
     }
 
-    // Filter Bottom Sheet
-    if (showFilterSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showFilterSheet = false },
-            dragHandle = { BottomSheetDefaults.DragHandle() },
-            modifier = Modifier.fillMaxHeight()
+    // Root Box — overlay sheet lives here, completely isolated from content layout
+    Box(modifier = Modifier.fillMaxSize()) {
+
+        // ── Main content ───────────────────────────────────────────────────────
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp)
+                .padding(top = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .imePadding()
-            ) {
-                // Scrollable filter content
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 24.dp)
-                        .padding(top = 8.dp, bottom = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    // Header
+            // Title / selection toolbar
+            AnimatedContent(targetState = isSelectionMode, label = "toolbar") { selection ->
+                if (selection) {
                     Row(
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            stringResource(R.string.history_filters),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                        if (hasActiveFilters) {
-                            TextButton(onClick = {
-                                filterType = ""; minDistance = ""; dateFrom = null; dateTo = null
-                            }) {
-                                Icon(Icons.Default.FilterListOff, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text(stringResource(R.string.history_clear_filters))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { selectedIds = emptySet() }) {
+                                Icon(Icons.Default.Close, null)
                             }
-                        }
-                    }
-
-                    //Tip aktivnosti
-                    Text(stringResource(R.string.history_filter_type), style = MaterialTheme.typography.labelMedium)
-                    val types = listOf("", "Trčanje", "Hodanje", "Biciklizam", "Plivanje", "Ostalo")
-                    androidx.compose.foundation.lazy.LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(types.size) { index ->
-                            val type = types[index]
-                            FilterChip(
-                                selected = filterType == type,
-                                onClick = { filterType = type },
-                                label = {
-                                    Text(
-                                        if (type == "") stringResource(R.string.history_filter_all)
-                                        else activityTypeDisplayName(type)
-                                    )
-                                },
-                                leadingIcon = if (type.isNotEmpty()) ({
-                                    Icon(activityIcon(type), null, modifier = Modifier.size(16.dp))
-                                }) else null
+                            Text(
+                                stringResource(R.string.history_selected, selectedIds.size),
+                                style = MaterialTheme.typography.titleMedium
                             )
                         }
-                    }
-
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-                    // Minimalna distanca
-                    Text(
-                        stringResource(R.string.history_filter_min_distance, unitLabel),
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                    OutlinedTextField(
-                        value = minDistance,
-                        onValueChange = { if (it.all { c -> c.isDigit() || c == '.' }) minDistance = it },
-                        placeholder = { Text(stringResource(R.string.history_filter_distance_hint)) },
-                        modifier = Modifier.fillMaxWidth(),
-                        trailingIcon = if (minDistance.isNotBlank()) {
-                            { IconButton(onClick = { minDistance = "" }) { Icon(Icons.Default.Clear, null) } }
-                        } else null,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Decimal,
-                            imeAction = ImeAction.Done
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onDone = { /* field stays visible above keyboard */ }
-                        ),
-                        singleLine = true
-                    )
-
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-
-                    // Vremenski period
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            stringResource(R.string.history_filter_date_range),
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                        if (dateFrom != null || dateTo != null) {
-                            IconButton(
-                                onClick = { dateFrom = null; dateTo = null },
-                                modifier = Modifier.size(28.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Clear,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        Row {
+                            TextButton(onClick = {
+                                selectedIds = if (allSelected) emptySet() else displayList.map { it.id }.toSet()
+                            }) {
+                                Text(
+                                    if (allSelected) stringResource(R.string.history_deselect_all)
+                                    else stringResource(R.string.history_select_all)
                                 )
                             }
+                            IconButton(onClick = { showDeleteDialog = true }) {
+                                Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error)
+                            }
                         }
                     }
-
-                    // Quick presets
-                    val todayStartMs = remember {
-                        Calendar.getInstance().apply {
-                            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
-                            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-                        }.timeInMillis
-                    }
-                    androidx.compose.foundation.lazy.LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        val presets = listOf(
-                            R.string.history_filter_date_today to 0,
-                            R.string.history_filter_date_week to 6,
-                            R.string.history_filter_date_month to 29,
-                            R.string.history_filter_date_3months to 89,
-                        )
-                        items(presets.size) { i ->
-                            val (labelRes, daysBack) = presets[i]
-                            val presetFrom = todayStartMs - daysBack * 86_400_000L
-                            val isActive = dateFrom == presetFrom && dateTo == null
-                            FilterChip(
-                                selected = isActive,
-                                onClick = {
-                                    if (isActive) { dateFrom = null }
-                                    else { dateFrom = presetFrom; dateTo = null }
-                                },
-                                label = { Text(stringResource(labelRes)) }
-                            )
-                        }
-                    }
-
-                    // Od / Do picker buttons
+                } else {
                     Row(
                         Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        DateButton(
-                            modifier = Modifier.weight(1f),
-                            label = stringResource(R.string.history_filter_date_from),
-                            date = dateFrom?.let { shortDateFmt.format(Date(it)) },
-                            onClick = { showDatePicker = DatePickerTarget.FROM },
-                            onClear = { dateFrom = null }
+                        Text(
+                            stringResource(R.string.history_title),
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold
                         )
-                        DateButton(
-                            modifier = Modifier.weight(1f),
-                            label = stringResource(R.string.history_filter_date_to),
-                            date = dateTo?.let { shortDateFmt.format(Date(it)) },
-                            onClick = { showDatePicker = DatePickerTarget.TO },
-                            onClear = { dateTo = null }
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (hasActiveFilters) {
+                                IconButton(onClick = {
+                                    filterType = ""; minDistance = ""; dateFrom = null; dateTo = null
+                                }) {
+                                    Icon(Icons.Default.FilterListOff, null, tint = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                            IconButton(
+                                onClick = { showFilterSheet = true },
+                                colors = IconButtonDefaults.iconButtonColors(
+                                    containerColor = if (hasActiveFilters)
+                                        MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+                                )
+                            ) {
+                                Icon(Icons.Default.FilterList, null)
+                            }
+                        }
                     }
-
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-                Button(
-                    onClick = { showFilterSheet = false },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 16.dp)
-                ) {
-                    Text(stringResource(R.string.history_filter_apply))
                 }
             }
-        }
-    }
 
-    // Main content
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp)
-            .padding(top = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // Title / selection toolbar
-        AnimatedContent(targetState = isSelectionMode, label = "") { selection ->
-            if (selection) {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            // Active filter chips summary
+            if (!isSelectionMode && hasActiveFilters) {
+                androidx.compose.foundation.lazy.LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = { selectedIds = emptySet() }) {
-                            Icon(Icons.Default.Close, null)
-                        }
-                        Text(
-                            stringResource(R.string.history_selected, selectedIds.size),
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                    }
-                    Row {
-                        TextButton(onClick = {
-                            selectedIds = if (allSelected) emptySet() else displayList.map { it.id }.toSet()
-                        }) {
-                            Text(
-                                if (allSelected) stringResource(R.string.history_deselect_all)
-                                else stringResource(R.string.history_select_all)
+                    if (filterType.isNotBlank()) {
+                        item {
+                            ActiveFilterChip(
+                                label = activityTypeDisplayName(filterType),
+                                onRemove = { filterType = "" }
                             )
                         }
-                        IconButton(onClick = { showDeleteDialog = true }) {
-                            Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error)
+                    }
+                    if (minDistance.isNotBlank()) {
+                        item {
+                            ActiveFilterChip(
+                                label = "≥ $minDistance $unitLabel",
+                                onRemove = { minDistance = "" }
+                            )
                         }
                     }
+                    if (dateFrom != null) {
+                        item {
+                            ActiveFilterChip(
+                                label = "${stringResource(R.string.history_filter_date_from)}: ${shortDateFmt.format(Date(dateFrom!!))}",
+                                onRemove = { dateFrom = null }
+                            )
+                        }
+                    }
+                    if (dateTo != null) {
+                        item {
+                            ActiveFilterChip(
+                                label = "${stringResource(R.string.history_filter_date_to)}: ${shortDateFmt.format(Date(dateTo!!))}",
+                                onRemove = { dateTo = null }
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Search bar
+            if (!isSelectionMode) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it; viewModel.setSearch(it) },
+                    placeholder = { Text(stringResource(R.string.history_search_hint)) },
+                    leadingIcon = { Icon(Icons.Default.Search, null) },
+                    trailingIcon = if (searchQuery.isNotBlank()) {
+                        {
+                            IconButton(onClick = { searchQuery = ""; viewModel.setSearch("") }) {
+                                Icon(Icons.Default.Clear, null)
+                            }
+                        }
+                    } else null,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                        disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                    )
+                )
+            }
+
+            // List
+            if (displayList.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        stringResource(R.string.history_empty),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             } else {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(bottom = 100.dp)
                 ) {
-                    Text(
-                        stringResource(R.string.history_title),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (hasActiveFilters) {
-                            IconButton(onClick = {
-                                filterType = ""; minDistance = ""; dateFrom = null; dateTo = null
-                            }) {
-                                Icon(Icons.Default.FilterListOff, null, tint = MaterialTheme.colorScheme.primary)
+                    items(displayList, key = { it.id }) { activity ->
+                        val isSelected = activity.id in selectedIds
+                        NewActivityCard(
+                            activity = activity,
+                            useKm = useKm,
+                            isSelected = isSelected,
+                            isSelectionMode = isSelectionMode,
+                            onLongClick = { if (!isSelectionMode) selectedIds = setOf(activity.id) },
+                            onClick = {
+                                if (isSelectionMode) {
+                                    selectedIds = if (isSelected) selectedIds - activity.id else selectedIds + activity.id
+                                } else {
+                                    navController.navigate("detail/${activity.id}")
+                                }
                             }
+                        )
+                    }
+                }
+            }
+        }
+
+        // ── Filter sheet overlay — in-tree, fully isolated from content layout ─
+        AnimatedVisibility(
+            visible = showFilterSheet,
+            modifier = Modifier.align(Alignment.BottomCenter),
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(320)
+            ) + fadeIn(tween(220)),
+            exit = slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = tween(260)
+            ) + fadeOut(tween(180))
+        ) {
+            // Scrim + sheet in a full-screen Box so the scrim covers everything
+            Box(modifier = Modifier.fillMaxSize()) {
+                // Scrim
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.4f))
+                        .pointerInput(Unit) {
+                            detectTapGestures { showFilterSheet = false }
                         }
-                        IconButton(
-                            onClick = { showFilterSheet = true },
-                            colors = IconButtonDefaults.iconButtonColors(
-                                containerColor = if (hasActiveFilters)
-                                    MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-                            )
+                )
+
+                // Sheet surface anchored to bottom
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.BottomCenter)
+                        .navigationBarsPadding(),
+                    shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 3.dp,
+                    shadowElevation = 8.dp
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        // Drag handle
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp, bottom = 4.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.FilterList, null)
+                            Box(
+                                modifier = Modifier
+                                    .width(32.dp)
+                                    .height(4.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                            )
                         }
-                    }
-                }
-            }
-        }
 
-        // Active filter chips summary
-        if (!isSelectionMode && hasActiveFilters) {
-            androidx.compose.foundation.lazy.LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                if (filterType.isNotBlank()) {
-                    item {
-                        ActiveFilterChip(
-                            label = activityTypeDisplayName(filterType),
-                            onRemove = { filterType = "" }
-                        )
-                    }
-                }
-                if (minDistance.isNotBlank()) {
-                    item {
-                        ActiveFilterChip(
-                            label = "≥ $minDistance $unitLabel",
-                            onRemove = { minDistance = "" }
-                        )
-                    }
-                }
-                if (dateFrom != null) {
-                    item {
-                        ActiveFilterChip(
-                            label = "${stringResource(R.string.history_filter_date_from)}: ${shortDateFmt.format(Date(dateFrom!!))}",
-                            onRemove = { dateFrom = null }
-                        )
-                    }
-                }
-                if (dateTo != null) {
-                    item {
-                        ActiveFilterChip(
-                            label = "${stringResource(R.string.history_filter_date_to)}: ${shortDateFmt.format(Date(dateTo!!))}",
-                            onRemove = { dateTo = null }
-                        )
-                    }
-                }
-            }
-        }
+                        // Scrollable filter content
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState())
+                                .padding(horizontal = 24.dp)
+                                .padding(top = 8.dp, bottom = 24.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            // Header
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    stringResource(R.string.history_filters),
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                if (hasActiveFilters) {
+                                    TextButton(onClick = {
+                                        filterType = ""; minDistance = ""; dateFrom = null; dateTo = null
+                                    }) {
+                                        Icon(
+                                            Icons.Default.FilterListOff,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                        Text(stringResource(R.string.history_clear_filters))
+                                    }
+                                }
+                            }
 
-        // Search bar
-        if (!isSelectionMode) {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it; viewModel.setSearch(it) },
-                placeholder = { Text(stringResource(R.string.history_search_hint)) },
-                leadingIcon = { Icon(Icons.Default.Search, null) },
-                trailingIcon = if (searchQuery.isNotBlank()) {
-                    {
-                        IconButton(onClick = { searchQuery = ""; viewModel.setSearch("") }) {
-                            Icon(Icons.Default.Clear, null)
-                        }
-                    }
-                } else null,
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth(),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                )
-            )
-        }
+                            // Tip aktivnosti
+                            Text(
+                                stringResource(R.string.history_filter_type),
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                            val types = listOf("", "Trčanje", "Hodanje", "Biciklizam", "Plivanje", "Ostalo")
+                            androidx.compose.foundation.lazy.LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(types.size) { index ->
+                                    val type = types[index]
+                                    FilterChip(
+                                        selected = filterType == type,
+                                        onClick = { filterType = type },
+                                        label = {
+                                            Text(
+                                                if (type == "") stringResource(R.string.history_filter_all)
+                                                else activityTypeDisplayName(type)
+                                            )
+                                        },
+                                        leadingIcon = if (type.isNotEmpty()) ({
+                                            Icon(activityIcon(type), null, modifier = Modifier.size(16.dp))
+                                        }) else null
+                                    )
+                                }
+                            }
 
-        // List
-        if (displayList.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    stringResource(R.string.history_empty),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        } else {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(bottom = 100.dp)
-            ) {
-                items(displayList, key = { it.id }) { activity ->
-                    val isSelected = activity.id in selectedIds
-                    NewActivityCard(
-                        activity = activity,
-                        useKm = useKm,
-                        isSelected = isSelected,
-                        isSelectionMode = isSelectionMode,
-                        onLongClick = { if (!isSelectionMode) selectedIds = setOf(activity.id) },
-                        onClick = {
-                            if (isSelectionMode) {
-                                selectedIds = if (isSelected) selectedIds - activity.id else selectedIds + activity.id
-                            } else {
-                                navController.navigate("detail/${activity.id}")
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                            // Minimalna distanca
+                            Text(
+                                stringResource(R.string.history_filter_min_distance, unitLabel),
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                            OutlinedTextField(
+                                value = minDistance,
+                                onValueChange = { if (it.all { c -> c.isDigit() || c == '.' }) minDistance = it },
+                                placeholder = { Text(stringResource(R.string.history_filter_distance_hint)) },
+                                modifier = Modifier.fillMaxWidth(),
+                                trailingIcon = if (minDistance.isNotBlank()) {
+                                    {
+                                        IconButton(onClick = { minDistance = "" }) {
+                                            Icon(Icons.Default.Clear, null)
+                                        }
+                                    }
+                                } else null,
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Decimal,
+                                    imeAction = ImeAction.Done
+                                ),
+                                keyboardActions = KeyboardActions(onDone = {}),
+                                singleLine = true
+                            )
+
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                            // Vremenski period
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    stringResource(R.string.history_filter_date_range),
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                                if (dateFrom != null || dateTo != null) {
+                                    IconButton(
+                                        onClick = { dateFrom = null; dateTo = null },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Clear,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Quick presets
+                            val todayStartMs = remember {
+                                Calendar.getInstance().apply {
+                                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                                    set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                                }.timeInMillis
+                            }
+                            androidx.compose.foundation.lazy.LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                val presets = listOf(
+                                    R.string.history_filter_date_today to 0,
+                                    R.string.history_filter_date_week to 6,
+                                    R.string.history_filter_date_month to 29,
+                                    R.string.history_filter_date_3months to 89,
+                                )
+                                items(presets.size) { i ->
+                                    val (labelRes, daysBack) = presets[i]
+                                    val presetFrom = todayStartMs - daysBack * 86_400_000L
+                                    val isActive = dateFrom == presetFrom && dateTo == null
+                                    FilterChip(
+                                        selected = isActive,
+                                        onClick = {
+                                            if (isActive) dateFrom = null
+                                            else { dateFrom = presetFrom; dateTo = null }
+                                        },
+                                        label = { Text(stringResource(labelRes)) }
+                                    )
+                                }
+                            }
+
+                            // Od / Do picker buttons
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                DateButton(
+                                    modifier = Modifier.weight(1f),
+                                    label = stringResource(R.string.history_filter_date_from),
+                                    date = dateFrom?.let { shortDateFmt.format(Date(it)) },
+                                    onClick = { showDatePicker = DatePickerTarget.FROM },
+                                    onClear = { dateFrom = null }
+                                )
+                                DateButton(
+                                    modifier = Modifier.weight(1f),
+                                    label = stringResource(R.string.history_filter_date_to),
+                                    date = dateTo?.let { shortDateFmt.format(Date(it)) },
+                                    onClick = { showDatePicker = DatePickerTarget.TO },
+                                    onClear = { dateTo = null }
+                                )
+                            }
+
+                            Spacer(Modifier.height(4.dp))
+                            Button(
+                                onClick = { showFilterSheet = false },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(stringResource(R.string.history_filter_apply))
                             }
                         }
-                    )
+                    }
                 }
             }
         }
     }
 }
 
-// Helper
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
 private enum class DatePickerTarget { FROM, TO }
 
@@ -630,15 +686,15 @@ fun NewActivityCard(
             }
 
             Row(
-                verticalAlignment     = Alignment.CenterVertically,
+                verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
                         formatDistance(activity.distanceMeters, useKm),
-                        style      = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.ExtraBold,
-                        color      = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary
                     )
                     Text(
                         formatDuration(activity.durationSeconds),
@@ -650,8 +706,8 @@ fun NewActivityCard(
                     Icon(
                         imageVector = Icons.Default.ChevronRight,
                         contentDescription = null,
-                        tint               = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                        modifier           = Modifier.size(20.dp)
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }

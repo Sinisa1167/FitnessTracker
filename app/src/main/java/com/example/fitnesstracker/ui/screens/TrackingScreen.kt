@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -66,7 +67,7 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
     val currentSpeed    = if (useKm) currentSpeedKmh else currentSpeedKmh * 0.621371f
     val avgSpeed        = if (useKm) avgSpeedKmh else avgSpeedKmh * 0.621371f
 
-    var selectedType   by remember { mutableStateOf("Trčanje") }
+    var selectedType   by rememberSaveable { mutableStateOf("Trčanje") }
     val caloriesBurned = calculateCalories(selectedType, elapsedSeconds, userProfile)
     var description                   by remember { mutableStateOf("") }
     var showSaveDialog                by remember { mutableStateOf(false) }
@@ -107,7 +108,6 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
         else showPermissionDialog = true
     }
 
-    // GPS disabled dialog
     if (showLocationExplanationDialog) {
         AlertDialog(
             onDismissRequest = { showLocationExplanationDialog = false },
@@ -129,7 +129,6 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
         )
     }
 
-    // Location permission denied dialog
     if (showPermissionDialog) {
         AlertDialog(
             onDismissRequest = { showPermissionDialog = false },
@@ -423,14 +422,14 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
                     ) == PackageManager.PERMISSION_GRANTED
 
                     when {
-                        !gpsOn  -> showLocationExplanationDialog = true
-                        !locOk  -> locationLauncher.launch(
+                        !gpsOn -> showLocationExplanationDialog = true
+                        !locOk -> locationLauncher.launch(
                             arrayOf(
                                 Manifest.permission.ACCESS_FINE_LOCATION,
                                 Manifest.permission.ACCESS_COARSE_LOCATION
                             )
                         )
-                        else    -> checkNotificationsAndStart(context, notificationLauncher)
+                        else   -> checkNotificationsAndStart(context, notificationLauncher)
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(64.dp),
