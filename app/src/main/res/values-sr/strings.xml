@@ -137,6 +137,7 @@
     <string name="settings_author">Autor</string>
     <string name="settings_author_value">ETF Banja Luka</string>
     <string name="settings_version_value">1.0.0</string>
+    <string name="settings_reminder_interval">Interval podsjetnika</string>
 
     <!-- Notifications -->
     <string name="notif_tracking_title">Trening u toku</string>

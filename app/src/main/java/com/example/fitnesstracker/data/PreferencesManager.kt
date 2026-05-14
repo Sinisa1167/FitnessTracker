@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.fitnesstracker.worker.ReminderWorker
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -57,6 +58,8 @@ class PreferencesManager(private val context: Context) {
         val KEY_LANGUAGE           = stringPreferencesKey("language")
         val KEY_UNITS              = stringPreferencesKey("units")
         val KEY_NOTIFICATIONS      = booleanPreferencesKey("notifications")
+        val KEY_REMINDER_HOURS = intPreferencesKey("reminder_hours")
+
         val KEY_LAST_ACTIVITY_TIME = longPreferencesKey("last_activity_timestamp")
         val KEY_WEIGHT_KG          = floatPreferencesKey("weight_kg")
         val KEY_HEIGHT_CM          = floatPreferencesKey("height_cm")
@@ -74,6 +77,12 @@ class PreferencesManager(private val context: Context) {
         context.dataStore.data.map { it[KEY_NOTIFICATIONS] ?: true }
     val lastActivityTimestamp: Flow<Long> =
         context.dataStore.data.map { it[KEY_LAST_ACTIVITY_TIME] ?: 0L }
+
+    val reminderHours: Flow<Int> = context.dataStore.data.map { it[KEY_REMINDER_HOURS] ?: 48 }
+
+    suspend fun setReminderHours(hours: Int) {
+        context.dataStore.edit { it[KEY_REMINDER_HOURS] = hours }
+    }
 
     val userProfile: Flow<UserProfile> = context.dataStore.data.map { prefs ->
         UserProfile(
@@ -112,8 +121,8 @@ class PreferencesManager(private val context: Context) {
 
     suspend fun setNotifications(enabled: Boolean) {
         context.dataStore.edit { it[KEY_NOTIFICATIONS] = enabled }
-        if (enabled) com.example.fitnesstracker.worker.ReminderWorker.scheduleFromNow(context)
-        else         com.example.fitnesstracker.worker.ReminderWorker.cancel(context)
+        if (enabled) ReminderWorker.scheduleFromNow(context)
+        else         ReminderWorker.cancel(context)
     }
 
     suspend fun setGoalDistance(type: String, value: Float) {
@@ -142,7 +151,7 @@ class PreferencesManager(private val context: Context) {
     suspend fun recordActivityCompleted(context: Context) {
         context.dataStore.edit { it[KEY_LAST_ACTIVITY_TIME] = System.currentTimeMillis() }
         if (notificationsEnabled.first()) {
-            com.example.fitnesstracker.worker.ReminderWorker.scheduleFromNow(context)
+            ReminderWorker.scheduleFromNow(context)
         }
     }
 

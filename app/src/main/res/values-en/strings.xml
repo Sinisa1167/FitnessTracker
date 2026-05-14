@@ -136,6 +136,7 @@
     <string name="settings_author">Author</string>
     <string name="settings_author_value">ETF Banja Luka</string>
     <string name="settings_version_value">1.0.0</string>
+    <string name="settings_reminder_interval">Reminder interval</string>
 
     <!-- Notifications -->
     <string name="notif_tracking_title">Workout in Progress</string>

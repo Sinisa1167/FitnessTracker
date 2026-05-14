@@ -139,6 +139,7 @@
 
     <string name="settings_system_title">System settings</string>
     <string name="settings_profile_save_success">Successfully changed!</string>
+    <string name="settings_reminder_interval">Reminder interval</string>
 
     <!-- Calorie dialog on Dashboard -->
     <string name="dashboard_calories_dialog_title">Estimate only</string>

@@ -1,5 +1,7 @@
 package com.example.fitnesstracker.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -31,34 +33,32 @@ fun SettingsScreen() {
     val prefs   = remember { PreferencesManager(context) }
     val scope   = rememberCoroutineScope()
     val keyboardController = LocalSoftwareKeyboardController.current
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarHostState  = remember { SnackbarHostState() }
 
     val language             by prefs.language.collectAsState(initial = "sr")
     val units                by prefs.units.collectAsState(initial = "km")
     val notificationsEnabled by prefs.notificationsEnabled.collectAsState(initial = true)
+    val reminderHours        by prefs.reminderHours.collectAsState(initial = 48)
     val allGoals             by prefs.allGoals.collectAsState(initial = emptyMap())
     val userProfile          by prefs.userProfile.collectAsState(initial = null)
 
-    // Don't render until the first real value arrives — eliminates the label-jump flicker
-    val profile = userProfile ?: return@SettingsScreen
+    val profile = userProfile ?: return
 
-    var weightInput by remember(profile.weightKg) {
+    var weightInput  by remember(profile.weightKg) {
         mutableStateOf(if (profile.weightKg > 0f) profile.weightKg.toInt().toString() else "")
     }
-    var heightInput by remember(profile.heightCm) {
+    var heightInput  by remember(profile.heightCm) {
         mutableStateOf(if (profile.heightCm > 0f) profile.heightCm.toInt().toString() else "")
     }
-    var ageInput by remember(profile.ageYears) {
+    var ageInput     by remember(profile.ageYears) {
         mutableStateOf(if (profile.ageYears > 0) profile.ageYears.toString() else "")
     }
-    var selectedSex by remember(profile.isMale) { mutableStateOf(profile.isMale) }
+    var selectedSex  by remember(profile.isMale) { mutableStateOf(profile.isMale) }
 
     val activityTypeKeys = DEFAULT_GOALS.keys.toList()
     var selectedGoalType by remember { mutableStateOf(activityTypeKeys.first()) }
     val currentGoal      = allGoals[selectedGoalType]
 
-    // Extract all translatable strings used inside lambdas at this level,
-    // keyed on lang so they refresh instantly when language changes.
     val labelWeight  = key(lang) { stringResource(R.string.settings_profile_weight) }
     val labelHeight  = key(lang) { stringResource(R.string.settings_profile_height) }
     val labelAge     = key(lang) { stringResource(R.string.settings_profile_age) }
@@ -78,7 +78,6 @@ fun SettingsScreen() {
                 .padding(top = 16.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // Title matches other screens
             Text(
                 text       = stringResource(R.string.settings_title),
                 style      = MaterialTheme.typography.headlineMedium,
@@ -87,28 +86,14 @@ fun SettingsScreen() {
             )
 
             // ── Moje mjere ────────────────────────────────────────────────────
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors   = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                )
+            SettingsSection(
+                title = stringResource(R.string.settings_profile),
+                icon  = Icons.Default.Person
             ) {
                 Column(
-                    modifier            = Modifier.padding(16.dp),
+                    modifier            = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Row(
-                        verticalAlignment     = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Text(
-                            text       = stringResource(R.string.settings_profile),
-                            style      = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             value           = weightInput,
@@ -206,7 +191,6 @@ fun SettingsScreen() {
                     }
 
                     currentGoal?.let { goal ->
-                        // Distance slider — step 1 km, shows km + mi
                         var distanceSlider by remember(goal.distanceKm) { mutableFloatStateOf(goal.distanceKm) }
                         Row(
                             modifier              = Modifier.fillMaxWidth(),
@@ -221,30 +205,26 @@ fun SettingsScreen() {
                                 Text(stringResource(R.string.settings_goal_distance), style = MaterialTheme.typography.bodyLarge)
                             }
                             Text(
-                                text       = "%.0f km (%.1f mi)".format(
-                                    distanceSlider,
-                                    distanceSlider * 0.621371f
-                                ),
+                                text       = "%.0f km (%.1f mi)".format(distanceSlider, distanceSlider * 0.621371f),
                                 style      = MaterialTheme.typography.titleMedium,
                                 color      = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Bold
                             )
                         }
                         Slider(
-                            value       = distanceSlider,
-                            onValueChange = { distanceSlider = it },
+                            value               = distanceSlider,
+                            onValueChange       = { distanceSlider = it },
                             onValueChangeFinished = {
                                 val rounded = distanceSlider.toInt().toFloat().coerceIn(1f, 50f)
                                 distanceSlider = rounded
                                 scope.launch { prefs.setGoalDistance(selectedGoalType, rounded) }
                             },
-                            valueRange  = 1f..50f,
-                            steps       = 0
+                            valueRange = 1f..50f,
+                            steps      = 0
                         )
 
                         HorizontalDivider()
 
-                        // Duration slider — step 5 min
                         var durationSlider by remember(goal.durationMin) { mutableFloatStateOf(goal.durationMin) }
                         Row(
                             modifier              = Modifier.fillMaxWidth(),
@@ -266,15 +246,15 @@ fun SettingsScreen() {
                             )
                         }
                         Slider(
-                            value       = durationSlider,
-                            onValueChange = { durationSlider = it },
+                            value               = durationSlider,
+                            onValueChange       = { durationSlider = it },
                             onValueChangeFinished = {
                                 val rounded = (kotlin.math.round(durationSlider / 5f) * 5f).coerceIn(5f, 180f)
                                 durationSlider = rounded
                                 scope.launch { prefs.setGoalDuration(selectedGoalType, rounded) }
                             },
-                            valueRange  = 5f..180f,
-                            steps       = 0
+                            valueRange = 5f..180f,
+                            steps      = 0
                         )
                     }
                 }
@@ -302,6 +282,34 @@ fun SettingsScreen() {
                             checked         = notificationsEnabled,
                             onCheckedChange = { scope.launch { prefs.setNotifications(it) } }
                         )
+                    }
+
+                    AnimatedVisibility(visible = notificationsEnabled) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            Text(
+                                stringResource(R.string.settings_reminder_interval),
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                            androidx.compose.foundation.lazy.LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                val presets = listOf(12, 24, 48, 72)
+                                items(presets.size) { i ->
+                                    val hours = presets[i]
+                                    FilterChip(
+                                        selected = reminderHours == hours,
+                                        onClick  = {
+                                            scope.launch {
+                                                prefs.setReminderHours(hours)
+                                                com.example.fitnesstracker.worker.ReminderWorker.scheduleFromNow(context)
+                                            }
+                                        },
+                                        label = { Text("${hours}h") }
+                                    )
+                                }
+                            }
+                        }
                     }
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
@@ -369,6 +377,7 @@ fun SettingsScreen() {
                 }
             }
         }
+
         SnackbarHost(
             hostState = snackbarHostState,
             modifier  = Modifier.align(Alignment.BottomCenter)
@@ -382,32 +391,53 @@ fun SettingsSection(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     content: @Composable () -> Unit
 ) {
+    var expanded by remember { mutableStateOf(false) }
+
     Card(
         modifier  = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(
-            modifier            = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded }
+                    .padding(16.dp),
                 verticalAlignment     = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
+                Row(
+                    verticalAlignment     = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector        = icon,
+                        contentDescription = null,
+                        tint               = MaterialTheme.colorScheme.primary,
+                        modifier           = Modifier.size(20.dp)
+                    )
+                    Text(
+                        text       = title,
+                        style      = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
                 Icon(
-                    imageVector        = icon,
+                    imageVector        = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                     contentDescription = null,
-                    tint               = MaterialTheme.colorScheme.primary,
-                    modifier           = Modifier.size(20.dp)
-                )
-                Text(
-                    text       = title,
-                    style      = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
+                    tint               = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            HorizontalDivider()
-            content()
+
+            AnimatedVisibility(visible = expanded) {
+                Column(
+                    modifier            = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    HorizontalDivider()
+                    content()
+                }
+            }
         }
     }
 }

@@ -38,6 +38,7 @@ import com.example.fitnesstracker.ui.theme.FitnessTrackerTheme
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import java.util.Locale
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 
 val LocalAppLang = compositionLocalOf { "sr" }
 
@@ -57,6 +58,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         val initialLang = runBlocking {
             PreferencesManager(applicationContext).language.first()
         }

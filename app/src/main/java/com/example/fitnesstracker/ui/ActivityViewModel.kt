@@ -70,7 +70,7 @@ class ActivityViewModel(application: Application) : AndroidViewModel(application
                 goal            = goals[type] ?: DEFAULT_GOALS[type]!!
             )
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), defaultTodayStats())
 
     fun setFilter(type: String) { _filterType.value = type }
     fun setSearch(query: String) { _searchQuery.value = query }
@@ -94,4 +94,8 @@ class ActivityViewModel(application: Application) : AndroidViewModel(application
         set(Calendar.SECOND, 0)
         set(Calendar.MILLISECOND, 0)
     }.timeInMillis
+
+    private fun defaultTodayStats() = DEFAULT_GOALS.keys.map { type ->
+        TypeDayStat(type, 0f, 0L, DEFAULT_GOALS[type]!!)
+    }
 }
