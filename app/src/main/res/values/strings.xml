@@ -146,4 +146,5 @@
     <string name="dashboard_calories_dialog_text">You haven\'t set your stats yet. Calories are calculated using an average body weight (75 kg). For a more accurate result, enter your details in Settings.</string>
     <string name="dashboard_calories_dialog_go">Go to Settings</string>
     <string name="dashboard_calories_dialog_dismiss">OK</string>
+    <string name="detail_calories">Calories</string>
 </resources>

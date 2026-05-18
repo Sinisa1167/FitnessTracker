@@ -128,10 +128,19 @@ fun ActivityDetailScreen(
                         )
                         DetailItem(
                             Modifier.weight(1f),
+                            Icons.Default.Whatshot,
+                            stringResource(R.string.detail_calories),
+                            "${act.caloriesBurned} kcal"
+                        )
+                    }
+                    Row(Modifier.fillMaxWidth()) {
+                        DetailItem(
+                            Modifier.weight(1f),
                             Icons.Default.CalendarToday,
                             stringResource(R.string.detail_date),
                             formatDate(act.timestamp).split(" ")[0]
                         )
+                        Spacer(Modifier.weight(1f))
                     }
 
                     if (act.description.isNotBlank()) {

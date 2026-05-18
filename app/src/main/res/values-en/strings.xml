@@ -114,6 +114,7 @@
     <string name="detail_delete_confirm_text">Are you sure?</string>
     <string name="detail_delete_confirm">Delete</string>
     <string name="detail_delete_cancel">Cancel</string>
+    <string name="detail_calories">Calories</string>
 
     <!-- Settings Screen -->
     <string name="settings_title">Settings</string>

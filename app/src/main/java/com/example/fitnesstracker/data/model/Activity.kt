@@ -13,5 +13,6 @@ data class Activity(
     val timestamp: Long,
     val description: String = "",
     val avgSpeedKmh: Float = 0f,
-    val gpsPoints: String = ""
+    val gpsPoints: String = "",
+    val caloriesBurned: Int = 0
 )

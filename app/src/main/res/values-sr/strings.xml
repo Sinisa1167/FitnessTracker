@@ -115,6 +115,7 @@
     <string name="detail_delete_confirm_text">Da li ste sigurni?</string>
     <string name="detail_delete_confirm">Obriši</string>
     <string name="detail_delete_cancel">Odustani</string>
+    <string name="detail_calories">Kalorije</string>
 
     <!-- Settings Screen -->
     <string name="settings_title">Podešavanja</string>

@@ -187,7 +187,8 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
                             timestamp       = System.currentTimeMillis(),
                             description     = description,
                             avgSpeedKmh     = avg,
-                            gpsPoints       = gpsPoints
+                            gpsPoints       = gpsPoints,
+                            caloriesBurned  = caloriesBurned
                         )
                     )
                     showSaveDialog = false
