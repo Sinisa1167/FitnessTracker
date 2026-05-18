@@ -12,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,7 +42,7 @@ import com.example.fitnesstracker.service.TrackingService
 import com.example.fitnesstracker.ui.ActivityViewModel
 
 // Internal keys / database.
-val ACTIVITY_TYPE_KEYS = listOf("Trčanje", "Hodanje", "Biciklizam", "Plivanje", "Ostalo")
+val ACTIVITY_TYPE_KEYS = listOf("Trčanje", "Hodanje", "Biciklizam", "Plivanje", "Planinarenje", "Ostalo")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,8 +59,7 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
     val userProfile by viewModel.userProfile.collectAsState()
     val useKm        = units == "km"
 
-    val avgSpeedKmh = if (elapsedSeconds > 0)
-        (distanceMeters / 1000f) / (elapsedSeconds / 3600f) else 0f
+    val avgSpeedKmh by TrackingService.avgSpeedKmh.observeAsState(0f)
 
     val distanceDisplay = if (useKm) distanceMeters / 1000f else distanceMeters / 1609f
     val distanceUnit    = if (useKm) "KM" else "MI"
@@ -68,7 +68,7 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
     val avgSpeed        = if (useKm) avgSpeedKmh else avgSpeedKmh * 0.621371f
 
     var selectedType   by rememberSaveable { mutableStateOf("Trčanje") }
-    val caloriesBurned = calculateCalories(selectedType, elapsedSeconds, userProfile)
+    val caloriesBurned = calculateCalories(selectedType, elapsedSeconds, userProfile, avgSpeedKmh)
     var description                   by remember { mutableStateOf("") }
     var showSaveDialog                by remember { mutableStateOf(false) }
     var showPermissionDialog          by remember { mutableStateOf(false) }
@@ -186,7 +186,7 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
                             distanceMeters  = distanceMeters,
                             timestamp       = System.currentTimeMillis(),
                             description     = description,
-                            avgSpeedKmh     = avg,
+                            avgSpeedKmh = TrackingService.avgSpeedKmh.value ?: 0f,
                             gpsPoints       = gpsPoints,
                             caloriesBurned  = caloriesBurned
                         )
@@ -261,68 +261,10 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
 
         // Activity type selector
         if (!isTracking) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    modifier              = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment     = Alignment.CenterVertically
-                ) {
-                    Text(
-                        stringResource(R.string.tracking_select_activity),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Icon(
-                        imageVector        = Icons.Default.SwapHoriz,
-                        contentDescription = null,
-                        modifier           = Modifier.size(20.dp),
-                        tint               = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                    )
-                }
-
-                androidx.compose.foundation.lazy.LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding        = PaddingValues(horizontal = 4.dp)
-                ) {
-                    items(ACTIVITY_TYPE_KEYS.size) { index ->
-                        val typeKey    = ACTIVITY_TYPE_KEYS[index]
-                        val isSelected = selectedType == typeKey
-                        val color      = getActivityColor(typeKey)
-
-                        FilterChip(
-                            selected    = isSelected,
-                            onClick     = { selectedType = typeKey },
-                            label       = {
-                                Text(
-                                    activityTypeDisplayName(typeKey),
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                )
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector        = activityIcon(typeKey),
-                                    contentDescription = null,
-                                    modifier           = Modifier.size(18.dp),
-                                    tint               = if (isSelected) color
-                                    else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = color.copy(alpha = 0.15f),
-                                selectedLabelColor     = color
-                            ),
-                            border = FilterChipDefaults.filterChipBorder(
-                                borderColor         = MaterialTheme.colorScheme.outlineVariant,
-                                selectedBorderColor = color,
-                                selectedBorderWidth = 1.5.dp,
-                                enabled             = true,
-                                selected            = isSelected
-                            ),
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                    }
-                }
-            }
+            ActivityTypeSelector(
+                selectedType = selectedType,
+                onSelect = { selectedType = it }
+            )
         }
 
         // Stats card
@@ -454,6 +396,83 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
 }
 
 // Composable helpers
+@Composable
+fun ActivityTypeSelector(
+    selectedType: String,
+    onSelect: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            stringResource(R.string.tracking_select_activity),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        val rows = ACTIVITY_TYPE_KEYS.chunked(3)
+        rows.forEach { rowTypes ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                rowTypes.forEach { typeKey ->
+                    ActivityTypeChip(
+                        modifier = Modifier.weight(1f),
+                        typeKey = typeKey,
+                        isSelected = selectedType == typeKey,
+                        onSelect = onSelect
+                    )
+                }
+                repeat(3 - rowTypes.size) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ActivityTypeChip(
+    modifier: Modifier,
+    typeKey: String,
+    isSelected: Boolean,
+    onSelect: (String) -> Unit
+) {
+    val containerColor = if (isSelected)
+        MaterialTheme.colorScheme.primary
+    else
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+
+    val contentColor = if (isSelected)
+        MaterialTheme.colorScheme.onPrimary
+    else
+        MaterialTheme.colorScheme.onSurfaceVariant
+
+    Card(
+        modifier = modifier.clickable { onSelect(typeKey) },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = containerColor)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(
+                imageVector = activityIcon(typeKey),
+                contentDescription = null,
+                tint = contentColor,
+                modifier = Modifier.size(26.dp)
+            )
+            Text(
+                activityTypeDisplayName(typeKey),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                color = contentColor
+            )
+        }
+    }
+}
 
 @Composable
 fun StatItem(

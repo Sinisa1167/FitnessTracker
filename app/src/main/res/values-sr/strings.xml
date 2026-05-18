@@ -8,6 +8,7 @@
     <string name="type_cycling">Biciklizam</string>
     <string name="type_swimming">Plivanje</string>
     <string name="type_other">Ostalo</string>
+    <string name="type_hiking">Planinarenje</string>
 
     <!-- Bottom nav -->
     <string name="nav_home">Početna</string>

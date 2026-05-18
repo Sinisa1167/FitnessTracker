@@ -25,7 +25,6 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.example.fitnesstracker.R
 import com.example.fitnesstracker.data.calculateCalories
 import com.example.fitnesstracker.ui.ActivityViewModel
-import com.example.fitnesstracker.ui.TypeDayStat
 
 @Composable
 fun DashboardScreen(
@@ -75,8 +74,8 @@ fun DashboardScreen(
 
     val todayCalories = remember(statsByType, userProfile) {
         statsByType.sumOf { stat ->
-            calculateCalories(stat.type, stat.durationSeconds, userProfile).toDouble()
-        }.toInt()
+            calculateCalories(stat.type, stat.durationSeconds, userProfile, stat.avgSpeedKmh)
+        }
     }
 
     var showProfileDialog by remember { mutableStateOf(false) }
@@ -304,7 +303,7 @@ private fun ActivityTypeSwitcher(
                 ) {
                     Icon(
                         imageVector = activityIcon(type),
-                        contentDescription = activityTypeDisplayName(type),
+                        contentDescription = (type),
                         tint = iconTint,
                         modifier = Modifier.size(22.dp)
                     )

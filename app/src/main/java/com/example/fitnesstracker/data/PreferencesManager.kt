@@ -32,26 +32,63 @@ val DEFAULT_GOALS = mapOf(
     "Hodanje"    to ActivityGoal(3f, 45f),
     "Biciklizam" to ActivityGoal(20f, 60f),
     "Plivanje"   to ActivityGoal(1f, 30f),
+    "Planinarenje" to ActivityGoal(8f, 120f),
     "Ostalo"     to ActivityGoal(5f, 30f)
-)
-
-val MET_VALUES = mapOf(
-    "Trčanje"    to 9.8f,
-    "Hodanje"    to 3.5f,
-    "Biciklizam" to 7.5f,
-    "Plivanje"   to 8.0f,
-    "Ostalo"     to 5.0f
 )
 
 private const val FALLBACK_WEIGHT_KG = 75f
 
-fun calculateCalories(activityType: String, durationSeconds: Long, profile: UserProfile): Int {
-    val met           = MET_VALUES[activityType] ?: 5.0f
+fun calculateCalories(
+    activityType: String,
+    durationSeconds: Long,
+    profile: UserProfile,
+    avgSpeedKmh: Float = 0f
+): Int {
+    val met = calculateMet(activityType, avgSpeedKmh)
     val durationHours = durationSeconds / 3600f
-    val weight        = if (profile.isConfigured) profile.weightKg else FALLBACK_WEIGHT_KG
-    return (met * weight * durationHours).toInt()
+    val weight = if (profile.isConfigured) profile.weightKg else FALLBACK_WEIGHT_KG
+    val base = met * weight * durationHours
+
+    // korekcija za pol i godine ako su dostupni
+    val corrected = if (profile.isConfigured && profile.ageYears > 0 && profile.isMale != null) {
+        val ageFactor = 1f - ((profile.ageYears - 25).coerceAtLeast(0) * 0.003f)
+        val sexFactor = if (profile.isMale) 1.0f else 0.9f
+        base * ageFactor * sexFactor
+    } else base
+
+    return corrected.toInt()
 }
 
+fun calculateMet(type: String, speedKmh: Float): Float = when (type) {
+    "Trčanje" -> when {
+        speedKmh <= 0f  -> 9.8f
+        speedKmh < 8f   -> 6.0f
+        speedKmh < 10f  -> 8.3f
+        speedKmh < 12f  -> 10.0f
+        speedKmh < 14f  -> 11.5f
+        speedKmh < 16f  -> 12.8f
+        else            -> 14.5f
+    }
+    "Hodanje" -> when {
+        speedKmh <= 0f -> 3.5f
+        speedKmh < 4f  -> 2.8f
+        speedKmh < 5f  -> 3.5f
+        speedKmh < 6f  -> 4.3f
+        else           -> 5.0f
+    }
+    "Biciklizam" -> when {
+        speedKmh <= 0f  -> 7.5f
+        speedKmh < 16f  -> 4.0f
+        speedKmh < 20f  -> 6.8f
+        speedKmh < 24f  -> 8.0f
+        speedKmh < 30f  -> 10.0f
+        else            -> 12.0f
+    }
+    "Plivanje"      -> 8.0f
+    "Planinarenje"  -> 6.0f
+    "Ostalo"        -> 5.0f
+    else            -> 5.0f
+}
 class PreferencesManager(private val context: Context) {
 
     companion object {

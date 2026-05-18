@@ -17,6 +17,7 @@ data class TypeDayStat(
     val type: String,
     val distanceMeters: Float,
     val durationSeconds: Long,
+    val avgSpeedKmh: Float,
     val goal: ActivityGoal
 )
 
@@ -67,6 +68,8 @@ class ActivityViewModel(application: Application) : AndroidViewModel(application
                 type            = type,
                 distanceMeters  = typeActivities.sumOf { it.distanceMeters.toDouble() }.toFloat(),
                 durationSeconds = typeActivities.sumOf { it.durationSeconds },
+                avgSpeedKmh     = typeActivities.map { it.avgSpeedKmh }.filter { it > 0f }
+                    .average().toFloat().takeIf { it.isFinite() } ?: 0f,
                 goal            = goals[type] ?: DEFAULT_GOALS[type]!!
             )
         }
@@ -96,6 +99,6 @@ class ActivityViewModel(application: Application) : AndroidViewModel(application
     }.timeInMillis
 
     private fun defaultTodayStats() = DEFAULT_GOALS.keys.map { type ->
-        TypeDayStat(type, 0f, 0L, DEFAULT_GOALS[type]!!)
+        TypeDayStat(type, 0f, 0L, 0f, DEFAULT_GOALS[type]!!)
     }
 }

@@ -8,6 +8,7 @@
     <string name="type_cycling">Cycling</string>
     <string name="type_swimming">Swimming</string>
     <string name="type_other">Other</string>
+    <string name="type_hiking">Hiking</string>
 
     <!-- Bottom nav -->
     <string name="nav_home">Home</string>

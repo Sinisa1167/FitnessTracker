@@ -22,6 +22,7 @@ class TrackingService : LifecycleService() {
     private var timerThread: Thread? = null
     private var startTimeMillis = 0L
     private var timerRunning    = false
+    private val speedSamples = mutableListOf<Float>()
 
     companion object {
         val isTracking      = MutableLiveData(false)
@@ -30,6 +31,7 @@ class TrackingService : LifecycleService() {
         val distanceMeters  = MutableLiveData(0f)
         val elapsedSeconds  = MutableLiveData(0L)
         val currentSpeedKmh = MutableLiveData(0f)
+        val avgSpeedKmh = MutableLiveData(0f)
 
         const val ACTION_START      = "ACTION_START"
         const val ACTION_STOP       = "ACTION_STOP"
@@ -59,6 +61,7 @@ class TrackingService : LifecycleService() {
     }
 
     private fun startTracking() {
+        speedSamples.clear()
         startForeground(1, buildNotification())
         isTracking.postValue(true)
         isPaused.postValue(false)
@@ -117,7 +120,7 @@ class TrackingService : LifecycleService() {
     private fun addPathPoint(location: Location) {
         val points = pathPoints.value ?: mutableListOf()
         if (points.isNotEmpty()) {
-            val last   = points.last()
+            val last = points.last()
             val result = FloatArray(1)
             Location.distanceBetween(
                 last.latitude, last.longitude,
@@ -126,8 +129,14 @@ class TrackingService : LifecycleService() {
             )
             distanceMeters.postValue((distanceMeters.value ?: 0f) + result[0])
         }
-        val speedKmh = if (location.hasSpeed()) location.speed * 3.6f else 0f
-        currentSpeedKmh.postValue(speedKmh)
+
+        if (location.hasSpeed() && location.speed > 0.3f) {
+            val kmh = location.speed * 3.6f
+            speedSamples.add(kmh)
+            currentSpeedKmh.postValue(kmh)
+            avgSpeedKmh.postValue(speedSamples.average().toFloat())
+        }
+
         points.add(location)
         pathPoints.postValue(points)
     }

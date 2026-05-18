@@ -31,6 +31,7 @@ fun activityTypeDisplayName(type: String): String = when (type) {
     "Hodanje"    -> stringResource(R.string.type_walking)
     "Biciklizam" -> stringResource(R.string.type_cycling)
     "Plivanje"   -> stringResource(R.string.type_swimming)
+    "Planinarenje" -> stringResource(R.string.type_hiking)
     "Ostalo"     -> stringResource(R.string.type_other)
     else         -> type
 }
@@ -40,6 +41,7 @@ fun activityIcon(type: String) = when (type.lowercase()) {
     "hodanje"    -> Icons.AutoMirrored.Filled.DirectionsWalk
     "plivanje"   -> Icons.Default.Pool
     "biciklizam" -> Icons.AutoMirrored.Filled.DirectionsBike
+    "planinarenje" -> Icons.Default.Terrain
     else         -> Icons.Default.FitnessCenter
 }
 
