@@ -148,4 +148,6 @@
     <string name="dashboard_calories_dialog_go">Go to Settings</string>
     <string name="dashboard_calories_dialog_dismiss">OK</string>
     <string name="detail_calories">Calories</string>
+    <string name="detail_pace">Pace</string>
+
 </resources>

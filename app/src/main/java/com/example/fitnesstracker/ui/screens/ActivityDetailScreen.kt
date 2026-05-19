@@ -128,9 +128,18 @@ fun ActivityDetailScreen(
                         )
                         DetailItem(
                             Modifier.weight(1f),
-                            Icons.Default.Whatshot,
-                            stringResource(R.string.detail_calories),
-                            "${act.caloriesBurned} kcal"
+                            Icons.Default.Timer,
+                            when (act.type) {
+                                "Trčanje", "Hodanje", "Planinarenje" -> stringResource(R.string.detail_pace) + " /km"
+                                "Plivanje" -> stringResource(R.string.detail_pace) + " /100m"
+                                else -> stringResource(R.string.detail_speed)
+                            },
+                            when (act.type) {
+                                "Trčanje", "Hodanje", "Planinarenje" ->
+                                    "${formatPace(act.avgSpeedKmh, useKm)}/${if (useKm) "km" else "mi"}"
+                                "Plivanje" -> "${formatSwimPace(act.avgSpeedKmh)}/100m"
+                                else -> formatSpeed(act.avgSpeedKmh, useKm)
+                            }
                         )
                     }
                     Row(Modifier.fillMaxWidth()) {

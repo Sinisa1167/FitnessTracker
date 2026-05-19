@@ -154,3 +154,21 @@ fun formatDistance(meters: Float, useKm: Boolean = true): String =
 fun formatSpeed(kmh: Float, useKm: Boolean = true): String =
     if (useKm) "%.1f km/h".format(kmh)
     else       "%.1f mph".format(kmh * 0.621371f)
+
+fun formatPace(avgSpeedKmh: Float, useKm: Boolean): String {
+    if (avgSpeedKmh < 0.5f) return "--:--"
+    val speedKmh = if (useKm) avgSpeedKmh else avgSpeedKmh * 0.621371f
+    val paceSeconds = (60f / speedKmh * 60f).toInt()
+    val minutes = paceSeconds / 60
+    val seconds = paceSeconds % 60
+    return "%d:%02d".format(minutes, seconds)
+}
+
+fun formatSwimPace(avgSpeedKmh: Float): String {
+    if (avgSpeedKmh < 0.1f) return "--:--"
+    val speedMs = avgSpeedKmh / 3.6f
+    val secondsPer100m = (100f / speedMs).toInt()
+    val minutes = secondsPer100m / 60
+    val seconds = secondsPer100m % 60
+    return "%d:%02d".format(minutes, seconds)
+}

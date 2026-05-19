@@ -117,6 +117,7 @@
     <string name="detail_delete_confirm">Obriši</string>
     <string name="detail_delete_cancel">Odustani</string>
     <string name="detail_calories">Kalorije</string>
+    <string name="detail_pace">Tempo</string>
 
     <!-- Settings Screen -->
     <string name="settings_title">Podešavanja</string>
