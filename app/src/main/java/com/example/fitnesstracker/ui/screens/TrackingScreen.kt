@@ -175,8 +175,6 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
             },
             confirmButton = {
                 Button(onClick = {
-                    val avg = if (elapsedSeconds > 0)
-                        (distanceMeters / 1000f) / (elapsedSeconds / 3600f) else 0f
                     val gpsPoints = TrackingService.pathPoints.value
                         ?.joinToString(";") { "${it.latitude},${it.longitude}" } ?: ""
                     viewModel.saveActivity(

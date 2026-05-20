@@ -14,15 +14,23 @@ import com.example.fitnesstracker.FitnessApp
 import com.example.fitnesstracker.MainActivity
 import com.example.fitnesstracker.R
 import com.google.android.gms.location.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 
 class TrackingService : LifecycleService() {
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
-    private var timerThread: Thread? = null
     private var startTimeMillis = 0L
-    private var timerRunning    = false
     private val speedSamples = mutableListOf<Float>()
+    private var timerJob: Job? = null
+    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     companion object {
         val isTracking      = MutableLiveData(false)
@@ -61,7 +69,6 @@ class TrackingService : LifecycleService() {
     }
 
     private fun startTracking() {
-        speedSamples.clear()
         startForeground(1, buildNotification())
         isTracking.postValue(true)
         isPaused.postValue(false)
@@ -70,24 +77,24 @@ class TrackingService : LifecycleService() {
         elapsedSeconds.postValue(0L)
 
         startTimeMillis = System.currentTimeMillis()
-        timerRunning    = true
-
-        timerThread = Thread {
-            while (timerRunning) {
-                elapsedSeconds.postValue((System.currentTimeMillis() - startTimeMillis) / 1000)
-                try { Thread.sleep(1000) } catch (e: InterruptedException) { break }
-            }
-        }.also { it.start() }
-
+        startTimer()
         requestLocationUpdates()
+    }
+
+    private fun startTimer() {
+        timerJob?.cancel()
+        timerJob = serviceScope.launch {
+            while (isActive) {
+                elapsedSeconds.postValue((System.currentTimeMillis() - startTimeMillis) / 1000)
+                delay(1000)
+            }
+        }
     }
 
     private fun pauseTracking() {
         isPaused.postValue(true)
         currentSpeedKmh.postValue(0f)
-        timerRunning = false
-        timerThread?.interrupt()
-        timerThread = null
+        timerJob?.cancel()
         try { fusedLocationClient.removeLocationUpdates(locationCallback) } catch (e: Exception) {}
     }
 
@@ -95,26 +102,24 @@ class TrackingService : LifecycleService() {
         isPaused.postValue(false)
         val pausedSeconds = elapsedSeconds.value ?: 0L
         startTimeMillis   = System.currentTimeMillis() - (pausedSeconds * 1000L)
-        timerRunning      = true
-        timerThread = Thread {
-            while (timerRunning) {
-                elapsedSeconds.postValue((System.currentTimeMillis() - startTimeMillis) / 1000)
-                try { Thread.sleep(1000) } catch (e: InterruptedException) { break }
-            }
-        }.also { it.start() }
+        startTimer()
         requestLocationUpdates()
     }
 
     private fun stopTracking() {
-        timerRunning = false
-        timerThread?.interrupt()
-        timerThread = null
+        timerJob?.cancel()
+        serviceScope.cancel()
         isTracking.postValue(false)
         isPaused.postValue(false)
         currentSpeedKmh.postValue(0f)
         try { fusedLocationClient.removeLocationUpdates(locationCallback) } catch (e: Exception) {}
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        serviceScope.cancel()
     }
 
     private fun addPathPoint(location: Location) {

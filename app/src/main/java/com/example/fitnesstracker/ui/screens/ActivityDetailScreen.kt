@@ -6,6 +6,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,9 +36,11 @@ fun ActivityDetailScreen(
 ) {
     val context = LocalContext.current
     val units   by viewModel.units.collectAsState()
-    val useKm    = units == "km"
+    val useKm   = units == "km"
 
-    var activity by remember { mutableStateOf<com.example.fitnesstracker.data.model.Activity?>(null) }
+    var activity       by remember { mutableStateOf<com.example.fitnesstracker.data.model.Activity?>(null) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showEditDialog   by remember { mutableStateOf(false) }
 
     LaunchedEffect(activityId) {
         activity = viewModel.getById(activityId)
@@ -46,12 +50,87 @@ fun ActivityDetailScreen(
         val gpsPoints     = parseGpsPoints(act.gpsPoints)
         val activityColor = getActivityColor(act.type)
 
-        Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            TopBar(
-                title    = activityTypeDisplayName(act.type),
-                onBack   = { navController.popBackStack() },
-                onDelete = { viewModel.deleteActivity(act); navController.popBackStack() }
+        if (showDeleteDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteDialog = false },
+                title            = { Text(stringResource(R.string.detail_delete_title)) },
+                text             = { Text(stringResource(R.string.detail_delete_confirm_text)) },
+                confirmButton    = {
+                    TextButton(onClick = {
+                        viewModel.deleteActivity(act)
+                        navController.popBackStack()
+                    }) {
+                        Text(
+                            stringResource(R.string.detail_delete_confirm),
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteDialog = false }) {
+                        Text(stringResource(R.string.detail_delete_cancel))
+                    }
+                }
             )
+        }
+
+        if (showEditDialog) {
+            var editedDescription by remember { mutableStateOf(act.description) }
+            AlertDialog(
+                onDismissRequest = { showEditDialog = false },
+                title            = { Text(stringResource(R.string.detail_edit_description)) },
+                text             = {
+                    OutlinedTextField(
+                        value         = editedDescription,
+                        onValueChange = { editedDescription = it },
+                        modifier      = Modifier.fillMaxWidth(),
+                        label         = { Text(stringResource(R.string.detail_description)) }
+                    )
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        viewModel.updateDescription(act.id, editedDescription)
+                        activity = act.copy(description = editedDescription)
+                        showEditDialog = false
+                    }) { Text(stringResource(R.string.save_confirm)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showEditDialog = false }) {
+                        Text(stringResource(R.string.detail_delete_cancel))
+                    }
+                }
+            )
+        }
+
+        Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+            Row(
+                modifier          = Modifier.fillMaxWidth().padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { navController.popBackStack() }) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.detail_back))
+                }
+                Text(
+                    activityTypeDisplayName(act.type),
+                    style      = MaterialTheme.typography.headlineSmall,
+                    modifier   = Modifier.weight(1f),
+                    fontWeight = FontWeight.Bold
+                )
+                IconButton(onClick = { showEditDialog = true }) {
+                    Icon(
+                        Icons.Default.Edit,
+                        stringResource(R.string.detail_edit_description),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+                IconButton(onClick = { showDeleteDialog = true }) {
+                    Icon(
+                        Icons.Default.Delete,
+                        stringResource(R.string.detail_delete),
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
 
             if (gpsPoints.isNotEmpty()) {
                 Card(
@@ -119,6 +198,7 @@ fun ActivityDetailScreen(
                             formatDistance(act.distanceMeters, useKm)
                         )
                     }
+
                     Row(Modifier.fillMaxWidth()) {
                         DetailItem(
                             Modifier.weight(1f),
@@ -130,32 +210,43 @@ fun ActivityDetailScreen(
                             Modifier.weight(1f),
                             Icons.Default.Timer,
                             when (act.type) {
-                                "Trčanje", "Hodanje", "Planinarenje" -> stringResource(R.string.detail_pace) + " /km"
-                                "Plivanje" -> stringResource(R.string.detail_pace) + " /100m"
-                                else -> stringResource(R.string.detail_speed)
+                                "Trčanje", "Hodanje", "Planinarenje" ->
+                                    stringResource(R.string.detail_pace)
+                                "Plivanje" ->
+                                    stringResource(R.string.detail_pace) + " /100m"
+                                else ->
+                                    stringResource(R.string.detail_speed)
                             },
                             when (act.type) {
                                 "Trčanje", "Hodanje", "Planinarenje" ->
                                     "${formatPace(act.avgSpeedKmh, useKm)}/${if (useKm) "km" else "mi"}"
-                                "Plivanje" -> "${formatSwimPace(act.avgSpeedKmh)}/100m"
-                                else -> formatSpeed(act.avgSpeedKmh, useKm)
+                                "Plivanje" ->
+                                    "${formatSwimPace(act.avgSpeedKmh)}/100m"
+                                else ->
+                                    formatSpeed(act.avgSpeedKmh, useKm)
                             }
                         )
                     }
+
                     Row(Modifier.fillMaxWidth()) {
+                        DetailItem(
+                            Modifier.weight(1f),
+                            Icons.Default.Whatshot,
+                            stringResource(R.string.detail_calories),
+                            "${act.caloriesBurned} kcal"
+                        )
                         DetailItem(
                             Modifier.weight(1f),
                             Icons.Default.CalendarToday,
                             stringResource(R.string.detail_date),
                             formatDate(act.timestamp).split(" ")[0]
                         )
-                        Spacer(Modifier.weight(1f))
                     }
 
                     if (act.description.isNotBlank()) {
                         HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
                         DetailRow(
-                            icon  = Icons.Default.Notes,
+                            icon  = Icons.AutoMirrored.Filled.Notes,
                             label = stringResource(R.string.detail_description),
                             value = act.description
                         )
@@ -219,54 +310,6 @@ fun OsmMapView(context: Context, gpsPoints: List<GeoPoint>, routeColor: Color) {
         },
         modifier = Modifier.fillMaxSize()
     )
-}
-
-@Composable
-fun TopBar(title: String, onBack: () -> Unit, onDelete: () -> Unit) {
-    var showDeleteDialog by remember { mutableStateOf(false) }
-
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title            = { Text(stringResource(R.string.detail_delete_title)) },
-            text             = { Text(stringResource(R.string.detail_delete_confirm_text)) },
-            confirmButton    = {
-                TextButton(onClick = onDelete) {
-                    Text(
-                        stringResource(R.string.detail_delete_confirm),
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            },
-            dismissButton    = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text(stringResource(R.string.detail_delete_cancel))
-                }
-            }
-        )
-    }
-
-    Row(
-        modifier          = Modifier.fillMaxWidth().padding(8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(onClick = onBack) {
-            Icon(Icons.Default.ArrowBack, stringResource(R.string.detail_back))
-        }
-        Text(
-            title,
-            style      = MaterialTheme.typography.headlineSmall,
-            modifier   = Modifier.weight(1f),
-            fontWeight = FontWeight.Bold
-        )
-        IconButton(onClick = { showDeleteDialog = true }) {
-            Icon(
-                Icons.Default.Delete,
-                stringResource(R.string.detail_delete),
-                tint = MaterialTheme.colorScheme.error
-            )
-        }
-    }
 }
 
 @Composable

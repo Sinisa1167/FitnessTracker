@@ -33,7 +33,6 @@ fun DashboardScreen(
 ) {
     val activities by viewModel.activities.collectAsState()
     val todayCount by viewModel.todayCount.collectAsState()
-    val todayDistance by viewModel.todayDistance.collectAsState()
     val statsByType by viewModel.todayStatsByType.collectAsState()
     val units by viewModel.units.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()

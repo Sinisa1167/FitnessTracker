@@ -10,6 +10,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
+import java.util.Calendar
 
 class BootReceiver : BroadcastReceiver() {
 
@@ -17,18 +18,27 @@ class BootReceiver : BroadcastReceiver() {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
 
         CoroutineScope(Dispatchers.IO).launch {
-            val prefs             = PreferencesManager(context)
+            val prefs           = PreferencesManager(context)
             val notificationsOn = prefs.notificationsEnabled.first()
             if (!notificationsOn) return@launch
 
-            val lastActivity      = prefs.getLastActivityTimestamp()
+            val lastActivity = prefs.getLastActivityTimestamp()
             if (lastActivity == 0L) {
                 ReminderWorker.scheduleFromNow(context)
                 return@launch
             }
 
-            val elapsed           = System.currentTimeMillis() - lastActivity
-            val delayMs           = TimeUnit.HOURS.toMillis(48) - elapsed
+            val startOfToday = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+
+            if (lastActivity >= startOfToday) return@launch
+
+            val elapsed  = System.currentTimeMillis() - lastActivity
+            val delayMs  = TimeUnit.HOURS.toMillis(48) - elapsed
 
             ReminderWorker.scheduleWithDelay(context, delayMs)
         }

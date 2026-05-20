@@ -47,11 +47,6 @@ class ActivityViewModel(application: Application) : AndroidViewModel(application
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val todayDistance: StateFlow<Float> = repository
-        .getTotalDistanceSince(startOfTodayMillis())
-        .map { it ?: 0f }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0f)
-
     val todayCount: StateFlow<Int> = repository
         .getCountSince(startOfTodayMillis())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
@@ -75,13 +70,12 @@ class ActivityViewModel(application: Application) : AndroidViewModel(application
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), defaultTodayStats())
 
-    fun setFilter(type: String) { _filterType.value = type }
     fun setSearch(query: String) { _searchQuery.value = query }
 
     fun saveActivity(activity: Activity) {
         viewModelScope.launch {
             repository.insert(activity)
-            prefs.recordActivityCompleted(getApplication())
+            prefs.recordActivityCompleted()
         }
     }
 
@@ -100,5 +94,9 @@ class ActivityViewModel(application: Application) : AndroidViewModel(application
 
     private fun defaultTodayStats() = DEFAULT_GOALS.keys.map { type ->
         TypeDayStat(type, 0f, 0L, 0f, DEFAULT_GOALS[type]!!)
+    }
+
+    fun updateDescription(id: Long, description: String) {
+        viewModelScope.launch { repository.updateDescription(id, description) }
     }
 }

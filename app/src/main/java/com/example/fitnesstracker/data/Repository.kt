@@ -13,13 +13,14 @@ class Repository(context: Context) {
 
     suspend fun delete(activity: Activity) = dao.delete(activity)
 
+    suspend fun updateDescription(id: Long, description: String) =
+        dao.updateDescription(id, description)
+
     fun getAll(): Flow<List<Activity>> = dao.getAll()
 
     suspend fun getById(id: Long): Activity? = dao.getById(id)
 
     fun getByType(type: String): Flow<List<Activity>> = dao.getByType(type)
-
-    fun getByDateRange(from: Long, to: Long): Flow<List<Activity>> = dao.getByDateRange(from, to)
 
     fun search(query: String): Flow<List<Activity>> = dao.search("%$query%")
 

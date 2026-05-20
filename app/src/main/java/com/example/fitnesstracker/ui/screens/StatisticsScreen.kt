@@ -17,7 +17,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.fitnesstracker.LocalAppLang
 import com.example.fitnesstracker.R
 import com.example.fitnesstracker.ui.ActivityViewModel
@@ -279,6 +278,8 @@ fun StatisticsScreen(viewModel: ActivityViewModel) {
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 val activitiesByType = activities.groupBy { it.type }
+                    .entries
+                    .sortedByDescending { it.value.size }
                 if (activitiesByType.isEmpty()) {
                     Text(
                         text     = stringResource(R.string.stats_no_activities),
@@ -286,7 +287,7 @@ fun StatisticsScreen(viewModel: ActivityViewModel) {
                         modifier = Modifier.padding(8.dp)
                     )
                 } else {
-                    activitiesByType.entries.forEachIndexed { idx, (type, list) ->
+                    activitiesByType.forEachIndexed { idx, (type, list) ->
                         TypeRow(
                             type     = type,
                             count    = list.size,

@@ -43,7 +43,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 val LocalAppLang = compositionLocalOf { "sr" }
 
 private val NAV_LABELS = mapOf(
-    "sr" to listOf("Početna", "Trening", "Istorija", "Statistike", "Postavke"),
+    "sr" to listOf("Početna", "Trening", "Istorija", "Statistike", "Podešavanja"),
     "en" to listOf("Home",    "Training", "History", "Statistics",  "Settings")
 )
 

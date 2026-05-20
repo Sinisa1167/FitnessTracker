@@ -118,6 +118,7 @@
     <string name="detail_delete_cancel">Odustani</string>
     <string name="detail_calories">Kalorije</string>
     <string name="detail_pace">Tempo</string>
+    <string name="detail_edit_description">Uredi opis</string>
 
     <!-- Settings Screen -->
     <string name="settings_title">Podešavanja</string>
@@ -146,7 +147,7 @@
     <string name="notif_tracking_title">Trening u toku</string>
     <string name="notif_tracking_text">Mjerimo vaše rezultate...</string>
     <string name="notif_reminder_title">Vrijeme za aktivnost!</string>
-    <string name="notif_reminder_text">Nisi bio aktivan duže od 48 sati. Hajde na trening!</string>
+    <string name="notif_reminder_text">Nisi bio aktivan duže vrijeme. Hajde na trening!</string>
     <string name="notif_channel_tracking">Praćenje aktivnosti</string>
     <string name="notif_channel_reminder">Podsjetnici</string>
 

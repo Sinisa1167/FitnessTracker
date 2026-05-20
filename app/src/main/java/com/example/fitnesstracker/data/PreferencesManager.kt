@@ -112,8 +112,6 @@ class PreferencesManager(private val context: Context) {
     val units: Flow<String>    = context.dataStore.data.map { it[KEY_UNITS] ?: "km" }
     val notificationsEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[KEY_NOTIFICATIONS] ?: true }
-    val lastActivityTimestamp: Flow<Long> =
-        context.dataStore.data.map { it[KEY_LAST_ACTIVITY_TIME] ?: 0L }
 
     val reminderHours: Flow<Int> = context.dataStore.data.map { it[KEY_REMINDER_HOURS] ?: 48 }
 
@@ -129,15 +127,6 @@ class PreferencesManager(private val context: Context) {
             isMale   = if (prefs[KEY_IS_MALE_SET] == true) prefs[KEY_IS_MALE] else null
         )
     }
-
-    fun goalForType(type: String): Flow<ActivityGoal> = context.dataStore.data.map { prefs ->
-        val default = DEFAULT_GOALS[type] ?: ActivityGoal(5f, 30f)
-        ActivityGoal(
-            distanceKm  = prefs[goalDistanceKey(type)] ?: default.distanceKm,
-            durationMin = prefs[goalDurationKey(type)] ?: default.durationMin
-        )
-    }
-
     val allGoals: Flow<Map<String, ActivityGoal>> = context.dataStore.data.map { prefs ->
         DEFAULT_GOALS.keys.associateWith { type ->
             val default = DEFAULT_GOALS[type]!!
@@ -185,7 +174,7 @@ class PreferencesManager(private val context: Context) {
         }
     }
 
-    suspend fun recordActivityCompleted(context: Context) {
+    suspend fun recordActivityCompleted() {
         context.dataStore.edit { it[KEY_LAST_ACTIVITY_TIME] = System.currentTimeMillis() }
         if (notificationsEnabled.first()) {
             ReminderWorker.scheduleFromNow(context)

@@ -8,19 +8,19 @@ import com.example.fitnesstracker.FitnessApp
 import com.example.fitnesstracker.data.PreferencesManager
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
+import com.example.fitnesstracker.R
 
 class ReminderWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        val hours = PreferencesManager(applicationContext).reminderHours.first()
-        sendReminderNotification(hours)
+        sendReminderNotification()
         return Result.success()
     }
 
-    private fun sendReminderNotification(hours: Int) {
+    private fun sendReminderNotification() {
         val notification = NotificationCompat.Builder(applicationContext, FitnessApp.CHANNEL_REMINDER)
-            .setContentTitle("Vrijeme za aktivnost!")
-            .setContentText("Nisi bio aktivan duže od ${hours}h. Hajde na trening!")
+            .setContentTitle(applicationContext.getString(R.string.notif_reminder_title))
+            .setContentText(applicationContext.getString(R.string.notif_reminder_text))
             .setSmallIcon(android.R.drawable.ic_menu_compass)
             .setAutoCancel(true)
             .build()
