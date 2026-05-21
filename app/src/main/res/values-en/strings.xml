@@ -148,6 +148,12 @@
     <string name="settings_version_value">1.0.0</string>
     <string name="settings_reminder_interval">Reminder interval</string>
 
+    <string name="settings_profile_reset">Reset</string>
+    <string name="settings_reset_dialog_title">Reset Measures</string>
+    <string name="settings_reset_dialog_desc">Are you sure you want to discard changes and reset measures to the last saved values?</string>
+    <string name="settings_reset_dialog_confirm">Confirm</string>
+    <string name="settings_reset_dialog_cancel">Cancel</string>
+
     <!-- Notifications -->
     <string name="notif_tracking_title">Workout in Progress</string>
     <string name="notif_tracking_text">Tracking your results…</string>

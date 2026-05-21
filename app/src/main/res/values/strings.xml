@@ -159,4 +159,10 @@
     <string name="stats_last30days">Distance (last 30 days)</string>
     <string name="stats_last90days">Distance (last 90 days)</string>
 
+    <string name="settings_profile_reset">Reset</string>
+    <string name="settings_reset_dialog_title">Reset Measures</string>
+    <string name="settings_reset_dialog_desc">Are you sure you want to discard changes and reset measures to the last saved values?</string>
+    <string name="settings_reset_dialog_confirm">Confirm</string>
+    <string name="settings_reset_dialog_cancel">Cancel</string>
+
 </resources>

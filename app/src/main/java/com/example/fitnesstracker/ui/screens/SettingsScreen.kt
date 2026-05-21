@@ -1,6 +1,8 @@
 package com.example.fitnesstracker.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -44,16 +46,33 @@ fun SettingsScreen() {
 
     val profile = userProfile ?: return
 
-    var weightInput  by remember(profile.weightKg) {
-        mutableStateOf(if (profile.weightKg > 0f) profile.weightKg.toInt().toString() else "")
-    }
-    var heightInput  by remember(profile.heightCm) {
-        mutableStateOf(if (profile.heightCm > 0f) profile.heightCm.toInt().toString() else "")
-    }
-    var ageInput     by remember(profile.ageYears) {
-        mutableStateOf(if (profile.ageYears > 0) profile.ageYears.toString() else "")
-    }
-    var selectedSex  by remember(profile.isMale) { mutableStateOf(profile.isMale) }
+    fun formatInitialValue(value: Float): String = if (value > 0f) value.toString().replace(".0", "") else ""
+    fun formatInitialValue(value: Int): String = if (value > 0) value.toString() else ""
+
+    var weightInput  by remember(profile.weightKg) { mutableStateOf(formatInitialValue(profile.weightKg)) }
+    var heightInput  by remember(profile.heightCm) { mutableStateOf(formatInitialValue(profile.heightCm)) }
+    var ageInput     by remember(profile.ageYears) { mutableStateOf(formatInitialValue(profile.ageYears)) }
+    var selectedSex by remember(profile.isMale) { mutableStateOf(profile.isMale as Boolean?) }
+    var showResetDialog by remember { mutableStateOf(false) }
+
+    val cleanWeight = weightInput.replace(',', '.')
+    val cleanHeight = heightInput.replace(',', '.')
+
+    val weightFloat = cleanWeight.toFloatOrNull()
+    val heightFloat = cleanHeight.toFloatOrNull()
+    val ageInt      = ageInput.toIntOrNull()
+
+    // Validacija
+    val isWeightError = weightInput.isNotEmpty() && (weightFloat == null || weightFloat !in 30f..300f)
+    val isHeightError = heightInput.isNotEmpty() && (heightFloat == null || heightFloat !in 100f..250f)
+    val isAgeError    = ageInput.isNotEmpty() && (ageInt == null || ageInt !in 5..110)
+
+    val isSaveEnabled = !isWeightError && !isHeightError && !isAgeError
+
+    val hasChanges = weightInput != formatInitialValue(profile.weightKg) ||
+            heightInput != formatInitialValue(profile.heightCm) ||
+            ageInput != formatInitialValue(profile.ageYears) ||
+            selectedSex != profile.isMale
 
     val activityTypeKeys = DEFAULT_GOALS.keys.toList()
     var selectedGoalType by remember { mutableStateOf(activityTypeKeys.first()) }
@@ -68,6 +87,37 @@ fun SettingsScreen() {
     val labelFemale  = key(lang) { stringResource(R.string.settings_profile_female) }
     val labelSave    = key(lang) { stringResource(R.string.settings_profile_save) }
     val labelSaved   = key(lang) { stringResource(R.string.settings_profile_save_success) }
+    val labelReset        = key(lang) { stringResource(R.string.settings_profile_reset) }
+    val dialogResetTitle  = key(lang) { stringResource(R.string.settings_reset_dialog_title) }
+    val dialogResetDesc   = key(lang) { stringResource(R.string.settings_reset_dialog_desc) }
+    val dialogResetConf   = key(lang) { stringResource(R.string.settings_reset_dialog_confirm) }
+    val dialogResetCanc   = key(lang) { stringResource(R.string.settings_reset_dialog_cancel) }
+
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetDialog = false },
+            title = { Text(dialogResetTitle) },
+            text = { Text(dialogResetDesc) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        weightInput = formatInitialValue(profile.weightKg)
+                        heightInput = formatInitialValue(profile.heightCm)
+                        ageInput = formatInitialValue(profile.ageYears)
+                        selectedSex = profile.isMale
+                        showResetDialog = false
+                    }
+                ) {
+                    Text(dialogResetConf, color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetDialog = false }) {
+                    Text(dialogResetCanc)
+                }
+            }
+        )
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -85,7 +135,7 @@ fun SettingsScreen() {
                 color      = MaterialTheme.colorScheme.onSurface
             )
 
-            // ── Moje mjere ────────────────────────────────────────────────────
+            // Moje mjere
             SettingsSection(
                 title = stringResource(R.string.settings_profile),
                 icon  = Icons.Default.Person
@@ -98,73 +148,138 @@ fun SettingsScreen() {
                         OutlinedTextField(
                             value           = weightInput,
                             onValueChange   = { weightInput = it },
-                            label           = { Text(labelWeight) },
+                            label           = {
+                                Text(
+                                    text = labelWeight,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 1
+                                )
+                            },
                             suffix          = { Text("kg") },
+                            trailingIcon    = {
+                                if (weightInput.isNotEmpty()) {
+                                    IconButton(onClick = { weightInput = "" }) {
+                                        Icon(Icons.Default.Clear, contentDescription = null)
+                                    }
+                                }
+                            },
                             modifier        = Modifier.weight(1f),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            singleLine      = true
+                            singleLine      = true,
+                            isError         = isWeightError
                         )
                         OutlinedTextField(
                             value           = heightInput,
                             onValueChange   = { heightInput = it },
-                            label           = { Text(labelHeight) },
+                            label           = {
+                                Text(
+                                    text = labelHeight,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 1
+                                )
+                            },
                             suffix          = { Text("cm") },
+                            trailingIcon    = {
+                                if (heightInput.isNotEmpty()) {
+                                    IconButton(onClick = { heightInput = "" }) {
+                                        Icon(Icons.Default.Clear, contentDescription = null)
+                                    }
+                                }
+                            },
                             modifier        = Modifier.weight(1f),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            singleLine      = true
+                            singleLine      = true,
+                            isError         = isHeightError
                         )
                     }
 
                     OutlinedTextField(
                         value           = ageInput,
                         onValueChange   = { ageInput = it },
-                        label           = { Text(labelAge) },
+                        label           = {
+                            Text(
+                                text = labelAge,
+                                style = MaterialTheme.typography.bodySmall,
+                                maxLines = 1
+                            )
+                        },
                         suffix          = { Text(labelAgeUnit) },
+                        trailingIcon    = {
+                            if (ageInput.isNotEmpty()) {
+                                IconButton(onClick = { ageInput = "" }) {
+                                    Icon(Icons.Default.Clear, contentDescription = null)
+                                }
+                            }
+                        },
                         modifier        = Modifier.fillMaxWidth(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine      = true
+                        singleLine      = true,
+                        isError         = isAgeError
                     )
 
                     Text(labelSex, style = MaterialTheme.typography.labelLarge)
                     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                         SegmentedButton(
                             selected = selectedSex == true,
-                            onClick  = { selectedSex = true },
+                            onClick  = { selectedSex = if (selectedSex == true) null else true },
                             shape    = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
                         ) { Text(labelMale) }
                         SegmentedButton(
                             selected = selectedSex == false,
-                            onClick  = { selectedSex = false },
+                            onClick  = { selectedSex = if (selectedSex == false) null else false },
                             shape    = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
                         ) { Text(labelFemale) }
                     }
 
-                    Button(
-                        onClick = {
-                            keyboardController?.hide()
-                            scope.launch {
-                                prefs.saveUserProfile(
-                                    UserProfile(
-                                        weightKg = weightInput.toFloatOrNull() ?: 0f,
-                                        heightCm = heightInput.toFloatOrNull() ?: 0f,
-                                        ageYears = ageInput.toIntOrNull() ?: 0,
-                                        isMale   = selectedSex
-                                    )
-                                )
-                                snackbarHostState.showSnackbar(labelSaved)
-                            }
-                        },
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        shape    = MaterialTheme.shapes.medium
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Save, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text(labelSave)
+                        AnimatedVisibility(
+                            visible = hasChanges,
+                            enter = fadeIn(),
+                            exit = fadeOut()
+                        ) {
+                            TextButton(
+                                onClick = { showResetDialog = true },
+                                modifier = Modifier.wrapContentWidth(),
+                                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = null)
+                                Spacer(Modifier.width(4.dp))
+                                Text(labelReset)
+                            }
+                        }
+
+                        Button(
+                            onClick = {
+                                keyboardController?.hide()
+                                scope.launch {
+                                    prefs.saveUserProfile(
+                                        UserProfile(
+                                            weightKg = weightFloat ?: 0f,
+                                            heightCm = heightFloat ?: 0f,
+                                            ageYears = ageInt ?: 0,
+                                            isMale   = selectedSex
+                                        )
+                                    )
+                                    snackbarHostState.showSnackbar(labelSaved)
+                                }
+                            },
+                            enabled = isSaveEnabled,
+                            modifier = Modifier.weight(1f),
+                            shape    = MaterialTheme.shapes.medium
+                        ) {
+                            Icon(Icons.Default.Save, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(labelSave)
+                        }
                     }
                 }
             }
 
-            // ── Dnevni ciljevi ────────────────────────────────────────────────
+            // Dnevni ciljevi
             SettingsSection(
                 title = stringResource(R.string.settings_goals),
                 icon  = Icons.Default.Flag
@@ -260,7 +375,7 @@ fun SettingsScreen() {
                 }
             }
 
-            // ── Sistemska podešavanja ─────────────────────────────────────────
+            // Sistemska podešavanja
             SettingsSection(
                 title = stringResource(R.string.settings_system_title),
                 icon  = Icons.Default.Settings
@@ -354,11 +469,11 @@ fun SettingsScreen() {
                 }
             }
 
-            // ── O aplikaciji ──────────────────────────────────────────────────
+            // O aplikaciji
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors   = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
                 )
             ) {
                 Column(
@@ -395,7 +510,10 @@ fun SettingsSection(
 
     Card(
         modifier  = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors    = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(

@@ -147,6 +147,12 @@
     <string name="settings_version_value">1.0.0</string>
     <string name="settings_reminder_interval">Interval podsjetnika</string>
 
+    <string name="settings_profile_reset">Resetuj</string>
+    <string name="settings_reset_dialog_title">Resetovanje mera</string>
+    <string name="settings_reset_dialog_desc">Da li ste sigurni da želite da poništite izmene i vratite mere na poslednje sačuvane vrednosti?</string>
+    <string name="settings_reset_dialog_confirm">Potvrdi</string>
+    <string name="settings_reset_dialog_cancel">Otkaži</string>
+
     <!-- Notifications -->
     <string name="notif_tracking_title">Trening u toku</string>
     <string name="notif_tracking_text">Mjerimo vaše rezultate...</string>
@@ -161,7 +167,7 @@
     <string name="settings_profile_height">Visina</string>
     <string name="settings_profile_age">Godine</string>
     <string name="settings_profile_age_unit">god.</string>
-    <string name="settings_profile_sex">Spol</string>
+    <string name="settings_profile_sex">Pol</string>
     <string name="settings_profile_male">Muški</string>
     <string name="settings_profile_female">Ženski</string>
     <string name="settings_profile_save">Sačuvaj mjere</string>
