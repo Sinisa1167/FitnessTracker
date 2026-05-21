@@ -1,7 +1,9 @@
 package com.example.fitnesstracker.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,6 +26,12 @@ import com.example.fitnesstracker.data.model.Activity
 import com.example.fitnesstracker.ui.theme.detailColor
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+
 
 @Composable
 fun activityTypeDisplayName(type: String): String = when (type) {
@@ -45,21 +53,34 @@ fun activityIcon(type: String) = when (type.lowercase()) {
     else         -> Icons.Default.FitnessCenter
 }
 
-@Composable
-fun getActivityColor(type: String): Color = detailColor
+fun getActivityColor(type: String): Color = when (type) {
+    "Trčanje"      -> Color(0xFF2196F3)
+    "Hodanje"      -> Color(0xFF4CAF50)
+    "Biciklizam"   -> Color(0xFFFF9800)
+    "Plivanje"     -> Color(0xFF00BCD4)
+    "Planinarenje" -> Color(0xFF795548)
+    else           -> Color(0xFF9E9E9E)
+}
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ActivityCard(
     activity: Activity,
     useKm: Boolean = true,
     isSelected: Boolean = false,
     isSelectionMode: Boolean = false,
+    onLongClick: (() -> Unit)? = null,
     onClick: () -> Unit
 ) {
+    val activityColor = getActivityColor(activity.type)
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() },
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            ),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer
@@ -77,24 +98,22 @@ fun ActivityCard(
                     .clip(CircleShape)
                     .background(
                         if (isSelected) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                        else activityColor.copy(alpha = 0.12f)
                     ),
                 contentAlignment = Alignment.Center
             ) {
                 if (isSelectionMode && isSelected) {
-                    Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.onPrimary)
+                    Icon(Icons.Default.Check, null, tint = Color.White)
                 } else {
                     Icon(
                         imageVector        = activityIcon(activity.type),
                         contentDescription = null,
-                        tint               = if (isSelected) MaterialTheme.colorScheme.onPrimary
-                        else MaterialTheme.colorScheme.primary,
+                        tint               = if (isSelected) Color.White else activityColor,
                         modifier           = Modifier.size(24.dp)
                     )
                 }
             }
 
-            // Name + date
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     activityTypeDisplayName(activity.type),
@@ -108,7 +127,6 @@ fun ActivityCard(
                 )
             }
 
-            // Distance + duration + chevron
             Row(
                 verticalAlignment     = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -118,7 +136,7 @@ fun ActivityCard(
                         formatDistance(activity.distanceMeters, useKm),
                         style      = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.ExtraBold,
-                        color      = MaterialTheme.colorScheme.primary
+                        color = if (isSelected) MaterialTheme.colorScheme.primary else activityColor
                     )
                     Text(
                         formatDuration(activity.durationSeconds),
@@ -126,12 +144,66 @@ fun ActivityCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
-                    contentDescription = null,
-                    tint               = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    modifier           = Modifier.size(20.dp)
+                if (!isSelectionMode) {
+                    Icon(
+                        imageVector        = Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint               = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        modifier           = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun FilterSection(
+    title: String,
+    isActive: Boolean = false,
+    content: @Composable () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded }
+                .padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (isActive) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurface
                 )
+                if (isActive) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary)
+                    )
+                }
+            }
+            Icon(
+                imageVector = if (expanded) Icons.Default.KeyboardArrowUp
+                else Icons.Default.KeyboardArrowDown,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        AnimatedVisibility(visible = expanded) {
+            Column(modifier = Modifier.padding(bottom = 8.dp)) {
+                content()
             }
         }
     }

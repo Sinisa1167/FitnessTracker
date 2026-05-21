@@ -27,6 +27,7 @@ import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Polyline
+import android.view.MotionEvent
 
 @Composable
 fun ActivityDetailScreen(
@@ -171,7 +172,10 @@ fun ActivityDetailScreen(
 
             Card(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                shape    = RoundedCornerShape(24.dp)
+                shape    = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                )
             ) {
                 Column(
                     modifier            = Modifier.padding(20.dp),
@@ -306,6 +310,17 @@ fun OsmMapView(context: Context, gpsPoints: List<GeoPoint>, routeColor: Color) {
                     controller.setZoom(16.0)
                     controller.setCenter(gpsPoints.first())
                 }
+            }
+        },
+        update = { mapView ->
+            mapView.setOnTouchListener { v, event ->
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE ->
+                        v.parent.requestDisallowInterceptTouchEvent(true)
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
+                        v.parent.requestDisallowInterceptTouchEvent(false)
+                }
+                false
             }
         },
         modifier = Modifier.fillMaxSize()

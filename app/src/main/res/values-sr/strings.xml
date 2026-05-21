@@ -89,8 +89,8 @@
     <string name="history_filter_date_month">30 dana</string>
     <string name="history_filter_date_3months">90 dana</string>
     <string name="history_filter_apply">Primijeni</string>
-
-
+    <string name="history_filter_min_duration">Minimalno trajanje</string>
+    <string name="history_filter_duration_hint">Npr. 30</string>
 
     <!-- Statistics Screen -->
     <string name="stats_title">Statistika</string>
@@ -101,6 +101,10 @@
     <string name="stats_no_data">Nema dovoljno podataka za prikaz grafikona</string>
     <string name="stats_no_activities">Nema zabilježenih aktivnosti</string>
     <string name="stats_activity_count">%d aktivnosti</string>
+    <string name="stats_total_duration">Trajanje</string>
+    <string name="stats_total_calories">Kalorije</string>
+    <string name="stats_last30days">Udaljenost (zadnjih 30 dana)</string>
+    <string name="stats_last90days">Udaljenost (zadnjih 90 dana)</string>
 
     <!-- Activity Detail Screen -->
     <string name="detail_map_unavailable">Mapa nije dostupna za ovu aktivnost</string>

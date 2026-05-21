@@ -89,6 +89,8 @@
     <string name="history_filter_date_month">30 days</string>
     <string name="history_filter_date_3months">90 days</string>
     <string name="history_filter_apply">Apply</string>
+    <string name="history_filter_min_duration">Minimum duration</string>
+    <string name="history_filter_duration_hint">e.g. 30</string>
 
 
     <!-- Statistics Screen -->
@@ -100,6 +102,10 @@
     <string name="stats_no_data">Not enough data to display chart</string>
     <string name="stats_no_activities">No recorded activities</string>
     <string name="stats_activity_count">%d activities</string>
+    <string name="stats_total_duration">Duration</string>
+    <string name="stats_total_calories">Calories</string>
+    <string name="stats_last30days">Distance (last 30 days)</string>
+    <string name="stats_last90days">Distance (last 90 days)</string>
 
     <!-- Activity Detail Screen -->
     <string name="detail_map_unavailable">Map not available for this activity</string>

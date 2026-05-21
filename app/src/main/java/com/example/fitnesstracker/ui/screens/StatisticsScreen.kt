@@ -32,6 +32,8 @@ import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.foundation.clickable
 
+enum class StatsPeriod { WEEK, MONTH, THREE_MONTHS}
+
 @Composable
 fun StatisticsScreen(viewModel: ActivityViewModel) {
     val activities by viewModel.activities.collectAsState()
@@ -41,16 +43,34 @@ fun StatisticsScreen(viewModel: ActivityViewModel) {
     val unitLabel   = if (useKm) "km" else "mi"
     val divisor     = if (useKm) 1000f else 1609f
 
+    var selectedPeriod by remember { mutableStateOf(StatsPeriod.WEEK) }
+
     val locale = remember(lang) {
         if (lang == "sr") Locale.forLanguageTag("sr-Latn") else Locale(lang)
     }
 
-    val last7Days = remember(locale) { getLast7Days(locale) }
+    val filteredActivities = remember(activities, selectedPeriod) {
+        val now = System.currentTimeMillis()
+        val from = when (selectedPeriod) {
+            StatsPeriod.WEEK         -> now - 7L  * 24 * 60 * 60 * 1000
+            StatsPeriod.MONTH        -> now - 30L * 24 * 60 * 60 * 1000
+            StatsPeriod.THREE_MONTHS -> now - 90L * 24 * 60 * 60 * 1000
+        }
+        activities.filter { it.timestamp >= from }
+    }
 
-    val statsData = remember(activities, units, locale) {
-        val labels  = last7Days.map { it.third }
-        val entries = last7Days.mapIndexed { index, triple ->
-            val dailySum = activities
+    val chartDays = remember(selectedPeriod, locale) {
+        when (selectedPeriod) {
+            StatsPeriod.WEEK         -> getLastNDays(7, locale)
+            StatsPeriod.MONTH        -> getLastNDays(30, locale)
+            StatsPeriod.THREE_MONTHS -> getLastNDays(90, locale)
+        }
+    }
+
+    val statsData = remember(filteredActivities, units, chartDays) {
+        val labels = chartDays.map { it.third }
+        val entries = chartDays.mapIndexed { index, triple ->
+            val dailySum = filteredActivities
                 .filter { it.timestamp in triple.first..triple.second }
                 .sumOf { it.distanceMeters.toDouble() } / divisor
             entryOf(index, dailySum.toFloat())
@@ -58,23 +78,39 @@ fun StatisticsScreen(viewModel: ActivityViewModel) {
         Pair(labels, entries)
     }
 
-    val modelProducerBar = remember(statsData.second) {
-        ChartEntryModelProducer(statsData.second)
+    val modelProducerBar = remember { ChartEntryModelProducer(statsData.second) }
+
+    LaunchedEffect(statsData.second) {
+        modelProducerBar.setEntries(statsData.second)
     }
 
-    var selectedBarIndex by remember { mutableStateOf<Int?>(null) }
+    var selectedBarIndex by remember(selectedPeriod) { mutableStateOf<Int?>(null) }
 
     val selectedDayLabel = selectedBarIndex?.let { statsData.first.getOrNull(it) }
     val selectedDayValue = selectedBarIndex?.let { statsData.second.getOrNull(it)?.y }
-    val selectedDayActivities = remember(selectedBarIndex, activities, last7Days) {
+    val selectedDayActivities = remember(selectedBarIndex, filteredActivities, chartDays) {
         selectedBarIndex?.let { idx ->
-            val (start, end, _) = last7Days[idx]
-            activities.filter { it.timestamp in start..end }
+            val (start, end, _) = chartDays[idx]
+            filteredActivities.filter { it.timestamp in start..end }
         }
     }
 
-    val totalDistance = activities.sumOf { it.distanceMeters.toDouble() } / divisor
-    val primaryColor  = MaterialTheme.colorScheme.primary
+    val totalDistance        = filteredActivities.sumOf { it.distanceMeters.toDouble() } / divisor
+    val totalDurationSeconds = filteredActivities.sumOf { it.durationSeconds }
+    val totalCalories        = filteredActivities.sumOf { it.caloriesBurned }
+    val primaryColor         = MaterialTheme.colorScheme.primary
+
+    val barThickness = when (selectedPeriod) {
+        StatsPeriod.WEEK         -> 12f
+        StatsPeriod.MONTH        -> 3f
+        StatsPeriod.THREE_MONTHS -> 1.5f
+    }
+
+    val barSpacing = when (selectedPeriod) {
+        StatsPeriod.WEEK         -> 4.dp
+        StatsPeriod.MONTH        -> 1.dp
+        StatsPeriod.THREE_MONTHS -> 0.5.dp
+    }
 
     Column(
         modifier = Modifier
@@ -90,6 +126,27 @@ fun StatisticsScreen(viewModel: ActivityViewModel) {
             color      = MaterialTheme.colorScheme.onSurface
         )
 
+        // Period switcher
+        Row(
+            modifier              = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            StatsPeriod.entries.forEach { period ->
+                FilterChip(
+                    selected = selectedPeriod == period,
+                    onClick  = { selectedPeriod = period },
+                    label    = {
+                        Text(
+                            periodLabel(period, lang),
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
+        // Summary kartica
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape    = RoundedCornerShape(28.dp),
@@ -97,63 +154,117 @@ fun StatisticsScreen(viewModel: ActivityViewModel) {
                 containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
             )
         ) {
-            Row(
-                modifier              = Modifier.padding(24.dp).fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment     = Alignment.CenterVertically
+            Column(
+                modifier = Modifier
+                    .padding(20.dp)
+                    .fillMaxWidth()
             ) {
-                StatDetailItem(
-                    label = stringResource(R.string.stats_activities),
-                    value = activities.size.toString(),
-                    icon  = Icons.Default.History
-                )
-                Box(
-                    modifier = Modifier
-                        .width(1.dp)
-                        .height(40.dp)
-                        .background(MaterialTheme.colorScheme.outlineVariant)
-                )
-                StatDetailItem(
-                    label = stringResource(R.string.stats_total, unitLabel),
-                    value = "%.1f".format(totalDistance),
-                    icon  = Icons.Default.Route
-                )
+                Row(
+                    modifier              = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment     = Alignment.CenterVertically
+                ) {
+                    StatDetailItem(
+                        label = stringResource(R.string.stats_activities),
+                        value = filteredActivities.size.toString(),
+                        icon  = Icons.Default.History
+                    )
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .height(40.dp)
+                            .background(MaterialTheme.colorScheme.outlineVariant)
+                    )
+                    StatDetailItem(
+                        label = stringResource(R.string.stats_total, unitLabel),
+                        value = "%.1f".format(totalDistance),
+                        icon  = Icons.Default.Route
+                    )
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .height(40.dp)
+                            .background(MaterialTheme.colorScheme.outlineVariant)
+                    )
+                    StatDetailItem(
+                        label = stringResource(R.string.stats_total_duration),
+                        value = formatDurationShort(totalDurationSeconds),
+                        icon  = Icons.Default.Timer
+                    )
+                }
+
+                if (totalCalories > 0) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        color    = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+                    Row(
+                        modifier              = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        StatDetailItem(
+                            label = stringResource(R.string.stats_total_calories),
+                            value = "$totalCalories kcal",
+                            icon  = Icons.Default.Whatshot
+                        )
+                    }
+                }
             }
         }
 
-        StatSectionTitle(stringResource(R.string.stats_last7days))
+        // Grafikon naslov
+        StatSectionTitle(
+            when (selectedPeriod) {
+                StatsPeriod.WEEK         -> stringResource(R.string.stats_last7days)
+                StatsPeriod.MONTH        -> stringResource(R.string.stats_last30days)
+                StatsPeriod.THREE_MONTHS -> stringResource(R.string.stats_last90days)
+            }
+        )
 
-        if (activities.isEmpty()) {
+        if (filteredActivities.isEmpty()) {
             EmptyChart()
         } else {
             Card(
                 modifier  = Modifier.fillMaxWidth(),
                 shape     = RoundedCornerShape(24.dp),
-                colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                colors    = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Box(modifier = Modifier.fillMaxWidth().height(200.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                    ) {
                         Chart(
                             chart = columnChart(
                                 columns = listOf(
                                     LineComponent(
                                         color       = primaryColor.hashCode(),
-                                        thicknessDp = 12f,
+                                        thicknessDp = barThickness,
                                         shape       = Shapes.roundedCornerShape(allPercent = 40)
                                     )
-                                )
+                                ),
+                                spacing = barSpacing
                             ),
                             chartModelProducer = modelProducerBar,
                             startAxis          = rememberStartAxis(),
                             bottomAxis         = rememberBottomAxis(
                                 valueFormatter = { value, _ ->
-                                    statsData.first.getOrNull(value.toInt()) ?: ""
+                                    when (selectedPeriod) {
+                                        StatsPeriod.WEEK -> statsData.first.getOrNull(value.toInt()) ?: ""
+                                        else -> if (value.toInt() % 7 == 0)
+                                            statsData.first.getOrNull(value.toInt()) ?: ""
+                                        else ""
+                                    }
                                 }
                             ),
                             modifier = Modifier.fillMaxSize()
                         )
 
+                        // Click overlay
                         Row(modifier = Modifier.fillMaxSize()) {
                             Spacer(modifier = Modifier.width(48.dp))
                             statsData.first.forEachIndexed { index, _ ->
@@ -162,13 +273,15 @@ fun StatisticsScreen(viewModel: ActivityViewModel) {
                                         .weight(1f)
                                         .fillMaxHeight()
                                         .clickable {
-                                            selectedBarIndex = if (selectedBarIndex == index) null else index
+                                            selectedBarIndex =
+                                                if (selectedBarIndex == index) null else index
                                         }
                                 )
                             }
                         }
                     }
 
+                    // Detalji odabranog dana
                     if (selectedBarIndex != null && selectedDayActivities != null) {
                         Spacer(modifier = Modifier.height(12.dp))
                         Card(
@@ -220,7 +333,7 @@ fun StatisticsScreen(viewModel: ActivityViewModel) {
                                                 modifier         = Modifier
                                                     .size(32.dp)
                                                     .background(
-                                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                                        getActivityColor(activity.type).copy(alpha = 0.1f),
                                                         CircleShape
                                                     ),
                                                 contentAlignment = Alignment.Center
@@ -228,7 +341,7 @@ fun StatisticsScreen(viewModel: ActivityViewModel) {
                                                 Icon(
                                                     imageVector        = activityIcon(activity.type),
                                                     contentDescription = null,
-                                                    tint               = MaterialTheme.colorScheme.primary,
+                                                    tint               = getActivityColor(activity.type),
                                                     modifier           = Modifier.size(18.dp)
                                                 )
                                             }
@@ -249,7 +362,7 @@ fun StatisticsScreen(viewModel: ActivityViewModel) {
                                                     formatDistance(activity.distanceMeters, useKm),
                                                     style      = MaterialTheme.typography.bodyMedium,
                                                     fontWeight = FontWeight.Bold,
-                                                    color      = MaterialTheme.colorScheme.primary
+                                                    color      = getActivityColor(activity.type)
                                                 )
                                                 Text(
                                                     formatDuration(activity.durationSeconds),
@@ -267,6 +380,7 @@ fun StatisticsScreen(viewModel: ActivityViewModel) {
             }
         }
 
+        // Po tipu
         StatSectionTitle(stringResource(R.string.stats_by_type))
 
         Card(
@@ -277,9 +391,11 @@ fun StatisticsScreen(viewModel: ActivityViewModel) {
             )
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                val activitiesByType = activities.groupBy { it.type }
+                val activitiesByType = filteredActivities
+                    .groupBy { it.type }
                     .entries
                     .sortedByDescending { it.value.size }
+
                 if (activitiesByType.isEmpty()) {
                     Text(
                         text     = stringResource(R.string.stats_no_activities),
@@ -289,11 +405,15 @@ fun StatisticsScreen(viewModel: ActivityViewModel) {
                 } else {
                     activitiesByType.forEachIndexed { idx, (type, list) ->
                         TypeRow(
-                            type     = type,
-                            count    = list.size,
-                            color    = getActivityColor(type),
-                            distance = list.sumOf { it.distanceMeters.toDouble() } / divisor,
-                            unit     = unitLabel
+                            type         = type,
+                            count        = list.size,
+                            color        = getActivityColor(type),
+                            distance     = list.sumOf { it.distanceMeters.toDouble() } / divisor,
+                            unit         = unitLabel,
+                            avgSpeed     = list.map { it.avgSpeedKmh }.filter { it > 0f }
+                                .average().takeIf { it.isFinite() }?.toFloat() ?: 0f,
+                            totalSeconds = list.sumOf { it.durationSeconds },
+                            useKm        = useKm
                         )
                         if (idx < activitiesByType.size - 1) {
                             HorizontalDivider(
@@ -310,6 +430,8 @@ fun StatisticsScreen(viewModel: ActivityViewModel) {
     }
 }
 
+// ── Composable helpers ─────────────────────────────────────────────────────────
+
 @Composable
 fun StatDetailItem(label: String, value: String, icon: ImageVector) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -319,8 +441,16 @@ fun StatDetailItem(label: String, value: String, icon: ImageVector) {
             tint               = MaterialTheme.colorScheme.primary,
             modifier           = Modifier.size(24.dp)
         )
-        Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            value,
+            style      = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -335,7 +465,16 @@ fun StatSectionTitle(title: String) {
 }
 
 @Composable
-fun TypeRow(type: String, count: Int, color: Color, distance: Double, unit: String) {
+fun TypeRow(
+    type: String,
+    count: Int,
+    color: Color,
+    distance: Double,
+    unit: String,
+    avgSpeed: Float,
+    totalSeconds: Long,
+    useKm: Boolean
+) {
     Row(
         modifier              = Modifier.fillMaxWidth(),
         verticalAlignment     = Alignment.CenterVertically,
@@ -343,13 +482,16 @@ fun TypeRow(type: String, count: Int, color: Color, distance: Double, unit: Stri
     ) {
         Row(
             verticalAlignment     = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier              = Modifier.weight(1f)
         ) {
-            Surface(color = color.copy(alpha = 0.2f), shape = CircleShape) {
+            Surface(color = color.copy(alpha = 0.12f), shape = CircleShape) {
                 Icon(
                     imageVector        = activityIcon(type),
                     contentDescription = null,
-                    modifier           = Modifier.padding(8.dp).size(20.dp),
+                    modifier           = Modifier
+                        .padding(8.dp)
+                        .size(20.dp),
                     tint               = color
                 )
             }
@@ -359,25 +501,50 @@ fun TypeRow(type: String, count: Int, color: Color, distance: Double, unit: Stri
                     style      = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium
                 )
-                Text(
-                    stringResource(R.string.stats_activity_count, count),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        stringResource(R.string.stats_activity_count, count),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (avgSpeed > 0f) {
+                        Text(
+                            "·",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            formatSpeed(avgSpeed, useKm),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         }
-        Text(
-            "%.1f $unit".format(distance),
-            fontWeight = FontWeight.Bold,
-            style      = MaterialTheme.typography.bodyLarge
-        )
+
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                "%.1f $unit".format(distance),
+                fontWeight = FontWeight.Bold,
+                style      = MaterialTheme.typography.bodyLarge,
+                color      = color
+            )
+            Text(
+                formatDuration(totalSeconds),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
 @Composable
 fun EmptyChart() {
     Box(
-        modifier         = Modifier.fillMaxWidth().height(150.dp),
+        modifier         = Modifier
+            .fillMaxWidth()
+            .height(150.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -387,12 +554,15 @@ fun EmptyChart() {
     }
 }
 
-fun getLast7Days(locale: Locale = Locale.getDefault()): List<Triple<Long, Long, String>> {
-    val result    = mutableListOf<Triple<Long, Long, String>>()
-    val calendar  = Calendar.getInstance()
-    val dayFormat = SimpleDateFormat("EEE", locale)
+// helpers
 
-    repeat(7) {
+fun getLastNDays(n: Int, locale: Locale = Locale.getDefault()): List<Triple<Long, Long, String>> {
+    val result     = mutableListOf<Triple<Long, Long, String>>()
+    val calendar   = Calendar.getInstance()
+    val dayFormat  = SimpleDateFormat("EEE", locale)
+    val dateFormat = SimpleDateFormat("dd.MM", locale)
+
+    repeat(n) {
         calendar.set(Calendar.HOUR_OF_DAY, 23)
         calendar.set(Calendar.MINUTE, 59)
         calendar.set(Calendar.SECOND, 59)
@@ -405,12 +575,28 @@ fun getLast7Days(locale: Locale = Locale.getDefault()): List<Triple<Long, Long, 
         calendar.set(Calendar.MILLISECOND, 0)
         val start = calendar.timeInMillis
 
-        val dayName = dayFormat.format(calendar.time)
-            .replaceFirstChar { if (it.isLowerCase()) it.titlecase(locale) else it.toString() }
+        val label = if (n <= 7)
+            dayFormat.format(calendar.time)
+                .replaceFirstChar { if (it.isLowerCase()) it.titlecase(locale) else it.toString() }
+        else
+            dateFormat.format(calendar.time)
 
-        result.add(Triple(start, end, dayName))
+        result.add(Triple(start, end, label))
         calendar.add(Calendar.DAY_OF_YEAR, -1)
     }
 
     return result.reversed()
+}
+
+fun formatDurationShort(seconds: Long): String {
+    val h = seconds / 3600
+    val m = (seconds % 3600) / 60
+    return if (h > 0) "${h}h ${m}m" else "${m}m"
+}
+
+@Composable
+fun periodLabel(period: StatsPeriod, lang: String): String = when (period) {
+    StatsPeriod.WEEK         -> if (lang == "sr") "7 dana"  else "7 days"
+    StatsPeriod.MONTH        -> if (lang == "sr") "30 dana" else "30 days"
+    StatsPeriod.THREE_MONTHS -> if (lang == "sr") "90 dana" else "90 days"
 }

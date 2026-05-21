@@ -283,7 +283,8 @@ private fun ActivityTypeSwitcher(
     ) {
         types.forEach { type ->
             val isSelected = type == selectedType
-            val bgColor = if (isSelected) MaterialTheme.colorScheme.primary
+            val activityColor = getActivityColor(type)
+            val bgColor = if (isSelected) activityColor
             else MaterialTheme.colorScheme.surfaceVariant
             val iconTint = if (isSelected) MaterialTheme.colorScheme.onPrimary
             else MaterialTheme.colorScheme.onSurfaceVariant
@@ -311,7 +312,7 @@ private fun ActivityTypeSwitcher(
                     Text(
                         text = activityTypeDisplayName(type),
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = activityColor,
                         fontWeight = FontWeight.SemiBold
                     )
                 }

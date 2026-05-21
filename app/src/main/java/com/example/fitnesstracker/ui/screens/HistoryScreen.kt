@@ -4,8 +4,6 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardActions
@@ -13,9 +11,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -32,7 +30,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.fitnesstracker.R
-import com.example.fitnesstracker.data.model.Activity
 import com.example.fitnesstracker.ui.ActivityViewModel
 import java.text.SimpleDateFormat
 import java.util.*
@@ -57,19 +54,21 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
     var minDistance by remember { mutableStateOf("") }
     var dateFrom by remember { mutableStateOf<Long?>(null) }
     var dateTo by remember { mutableStateOf<Long?>(null) }
+    var minDuration by remember { mutableStateOf("") }
 
-    val hasActiveFilters = filterType.isNotBlank() || minDistance.isNotBlank() || dateFrom != null || dateTo != null
+    val hasActiveFilters = filterType.isNotBlank() || minDistance.isNotBlank() || minDuration.isNotBlank() || dateFrom != null || dateTo != null
     val isSelectionMode = selectedIds.isNotEmpty()
 
     val shortDateFmt = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
 
     // Filter logic
-    val displayList = remember(searchQuery, searchResults, activities, filterType, minDistance, dateFrom, dateTo, units) {
+    val displayList = remember(searchQuery, searchResults, activities, filterType, minDistance, minDuration, dateFrom, dateTo, units) {
         val baseList = if (searchQuery.isNotBlank()) searchResults else activities
         baseList.filter { activity ->
             val matchesType = filterType.isBlank() || activity.type == filterType
             val dist = if (useKm) activity.distanceMeters / 1000f else activity.distanceMeters / 1609f
             val matchesDistance = minDistance.toFloatOrNull()?.let { dist >= it } ?: true
+            val matchesDuration = minDuration.toIntOrNull()?.let { activity.durationSeconds / 60 >= it } ?: true
             val endOfDay = dateTo?.let { it + 86_399_999L }
             val matchesDate = when {
                 dateFrom != null && endOfDay != null -> activity.timestamp in dateFrom!!..endOfDay
@@ -77,7 +76,7 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                 endOfDay != null -> activity.timestamp <= endOfDay
                 else -> true
             }
-            matchesType && matchesDistance && matchesDate
+            matchesType && matchesDistance && matchesDuration && matchesDate
         }
     }
 
@@ -200,7 +199,7 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (hasActiveFilters) {
                                 IconButton(onClick = {
-                                    filterType = ""; minDistance = ""; dateFrom = null; dateTo = null
+                                    filterType = ""; minDistance = ""; minDuration = ""; dateFrom = null; dateTo = null
                                 }) {
                                     Icon(Icons.Default.FilterListOff, null, tint = MaterialTheme.colorScheme.primary)
                                 }
@@ -240,6 +239,16 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                             )
                         }
                     }
+
+                    if (minDuration.isNotBlank()) {
+                        item {
+                            ActiveFilterChip(
+                                label = "≥ $minDuration min",
+                                onRemove = { minDuration = "" }
+                            )
+                        }
+                    }
+
                     if (dateFrom != null) {
                         item {
                             ActiveFilterChip(
@@ -300,7 +309,7 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                 ) {
                     items(displayList, key = { it.id }) { activity ->
                         val isSelected = activity.id in selectedIds
-                        NewActivityCard(
+                        ActivityCard(
                             activity = activity,
                             useKm = useKm,
                             isSelected = isSelected,
@@ -379,7 +388,7 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                                 .verticalScroll(rememberScrollState())
                                 .padding(horizontal = 24.dp)
                                 .padding(top = 8.dp, bottom = 24.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             // Header
                             Row(
@@ -394,7 +403,7 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                                 )
                                 if (hasActiveFilters) {
                                     TextButton(onClick = {
-                                        filterType = ""; minDistance = ""; dateFrom = null; dateTo = null
+                                        filterType = ""; minDistance = ""; minDuration = ""; dateFrom = null; dateTo = null
                                     }) {
                                         Icon(
                                             Icons.Default.FilterListOff,
@@ -407,140 +416,164 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                                 }
                             }
 
+                            Spacer(Modifier.height(8.dp))
+
                             // Tip aktivnosti
-                            Text(
-                                stringResource(R.string.history_filter_type),
-                                style = MaterialTheme.typography.labelMedium
-                            )
-                            val types = listOf("", "Trčanje", "Hodanje", "Biciklizam", "Plivanje", "Ostalo")
-                            androidx.compose.foundation.lazy.LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            FilterSection(
+                                title = stringResource(R.string.history_filter_type),
+                                isActive = filterType.isNotBlank()
                             ) {
-                                items(types.size) { index ->
-                                    val type = types[index]
-                                    FilterChip(
-                                        selected = filterType == type,
-                                        onClick = { filterType = type },
-                                        label = {
-                                            Text(
-                                                if (type == "") stringResource(R.string.history_filter_all)
-                                                else activityTypeDisplayName(type)
-                                            )
-                                        },
-                                        leadingIcon = if (type.isNotEmpty()) ({
-                                            Icon(activityIcon(type), null, modifier = Modifier.size(16.dp))
-                                        }) else null
-                                    )
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.padding(vertical = 8.dp)
+                                ) {
+                                    val types = listOf("", "Trčanje", "Hodanje", "Biciklizam", "Plivanje", "Planinarenje", "Ostalo")
+                                    items(types.size) { index ->
+                                        val type = types[index]
+                                        FilterChip(
+                                            selected = filterType == type,
+                                            onClick = { filterType = type },
+                                            label = {
+                                                Text(
+                                                    if (type == "") stringResource(R.string.history_filter_all)
+                                                    else activityTypeDisplayName(type)
+                                                )
+                                            },
+                                            leadingIcon = if (type.isNotEmpty()) ({
+                                                Icon(activityIcon(type), null, modifier = Modifier.size(16.dp))
+                                            }) else null
+                                        )
+                                    }
                                 }
                             }
 
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
                             // Minimalna distanca
-                            Text(
-                                stringResource(R.string.history_filter_min_distance, unitLabel),
-                                style = MaterialTheme.typography.labelMedium
-                            )
-                            OutlinedTextField(
-                                value = minDistance,
-                                onValueChange = { if (it.all { c -> c.isDigit() || c == '.' }) minDistance = it },
-                                placeholder = { Text(stringResource(R.string.history_filter_distance_hint)) },
-                                modifier = Modifier.fillMaxWidth(),
-                                trailingIcon = if (minDistance.isNotBlank()) {
-                                    {
-                                        IconButton(onClick = { minDistance = "" }) {
-                                            Icon(Icons.Default.Clear, null)
+                            FilterSection(
+                                title = stringResource(R.string.history_filter_min_distance, unitLabel),
+                                isActive = minDistance.isNotBlank()
+                            ) {
+                                OutlinedTextField(
+                                    value = minDistance,
+                                    onValueChange = { if (it.all { c -> c.isDigit() || c == '.' }) minDistance = it },
+                                    placeholder = { Text(stringResource(R.string.history_filter_distance_hint)) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp),
+                                    trailingIcon = if (minDistance.isNotBlank()) {
+                                        {
+                                            IconButton(onClick = { minDistance = "" }) {
+                                                Icon(Icons.Default.Clear, null)
+                                            }
                                         }
-                                    }
-                                } else null,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Decimal,
-                                    imeAction = ImeAction.Done
-                                ),
-                                keyboardActions = KeyboardActions(onDone = {}),
-                                singleLine = true
-                            )
+                                    } else null,
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Decimal,
+                                        imeAction = ImeAction.Done
+                                    ),
+                                    keyboardActions = KeyboardActions(onDone = {}),
+                                    singleLine = true
+                                )
+                            }
+
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                            // Minimalno trajanje
+                            FilterSection(
+                                title = stringResource(R.string.history_filter_min_duration),
+                                isActive = minDuration.isNotBlank()
+                            ) {
+                                OutlinedTextField(
+                                    value = minDuration,
+                                    onValueChange = { if (it.all { c -> c.isDigit() }) minDuration = it },
+                                    placeholder = { Text(stringResource(R.string.history_filter_duration_hint)) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp),
+                                    trailingIcon = if (minDuration.isNotBlank()) {
+                                        {
+                                            IconButton(onClick = { minDuration = "" }) {
+                                                Icon(Icons.Default.Clear, null)
+                                            }
+                                        }
+                                    } else null,
+                                    suffix = { Text("min") },
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Number,
+                                        imeAction = ImeAction.Done
+                                    ),
+                                    keyboardActions = KeyboardActions(onDone = {}),
+                                    singleLine = true
+                                )
+                            }
 
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
                             // Vremenski period
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    stringResource(R.string.history_filter_date_range),
-                                    style = MaterialTheme.typography.labelMedium
-                                )
-                                if (dateFrom != null || dateTo != null) {
-                                    IconButton(
-                                        onClick = { dateFrom = null; dateTo = null },
-                                        modifier = Modifier.size(28.dp)
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Clear,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                            }
-
-                            // Quick presets
                             val todayStartMs = remember {
                                 Calendar.getInstance().apply {
                                     set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
                                     set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
                                 }.timeInMillis
                             }
-                            androidx.compose.foundation.lazy.LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+
+                            FilterSection(
+                                title = stringResource(R.string.history_filter_date_range),
+                                isActive = dateFrom != null || dateTo != null
                             ) {
-                                val presets = listOf(
-                                    R.string.history_filter_date_today to 0,
-                                    R.string.history_filter_date_week to 6,
-                                    R.string.history_filter_date_month to 29,
-                                    R.string.history_filter_date_3months to 89,
-                                )
-                                items(presets.size) { i ->
-                                    val (labelRes, daysBack) = presets[i]
-                                    val presetFrom = todayStartMs - daysBack * 86_400_000L
-                                    val isActive = dateFrom == presetFrom && dateTo == null
-                                    FilterChip(
-                                        selected = isActive,
-                                        onClick = {
-                                            if (isActive) dateFrom = null
-                                            else { dateFrom = presetFrom; dateTo = null }
-                                        },
-                                        label = { Text(stringResource(labelRes)) }
-                                    )
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.padding(vertical = 8.dp)
+                                ) {
+                                    // Quick presets
+                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        val presets = listOf(
+                                            R.string.history_filter_date_today to 0,
+                                            R.string.history_filter_date_week to 6,
+                                            R.string.history_filter_date_month to 29,
+                                            R.string.history_filter_date_3months to 89,
+                                        )
+                                        items(presets.size) { i ->
+                                            val (labelRes, daysBack) = presets[i]
+                                            val presetFrom = todayStartMs - daysBack * 86_400_000L
+                                            val isActive = dateFrom == presetFrom && dateTo == null
+                                            FilterChip(
+                                                selected = isActive,
+                                                onClick = {
+                                                    if (isActive) dateFrom = null
+                                                    else { dateFrom = presetFrom; dateTo = null }
+                                                },
+                                                label = { Text(stringResource(labelRes)) }
+                                            )
+                                        }
+                                    }
+
+                                    // Od / Do picker buttons
+                                    Row(
+                                        Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        DateButton(
+                                            modifier = Modifier.weight(1f),
+                                            label = stringResource(R.string.history_filter_date_from),
+                                            date = dateFrom?.let { shortDateFmt.format(Date(it)) },
+                                            onClick = { showDatePicker = DatePickerTarget.FROM },
+                                            onClear = { dateFrom = null }
+                                        )
+                                        DateButton(
+                                            modifier = Modifier.weight(1f),
+                                            label = stringResource(R.string.history_filter_date_to),
+                                            date = dateTo?.let { shortDateFmt.format(Date(it)) },
+                                            onClick = { showDatePicker = DatePickerTarget.TO },
+                                            onClear = { dateTo = null }
+                                        )
+                                    }
                                 }
                             }
 
-                            // Od / Do picker buttons
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                DateButton(
-                                    modifier = Modifier.weight(1f),
-                                    label = stringResource(R.string.history_filter_date_from),
-                                    date = dateFrom?.let { shortDateFmt.format(Date(it)) },
-                                    onClick = { showDatePicker = DatePickerTarget.FROM },
-                                    onClear = { dateFrom = null }
-                                )
-                                DateButton(
-                                    modifier = Modifier.weight(1f),
-                                    label = stringResource(R.string.history_filter_date_to),
-                                    date = dateTo?.let { shortDateFmt.format(Date(it)) },
-                                    onClick = { showDatePicker = DatePickerTarget.TO },
-                                    onClear = { dateTo = null }
-                                )
-                            }
+                            Spacer(Modifier.height(8.dp))
 
-                            Spacer(Modifier.height(4.dp))
                             Button(
                                 onClick = { showFilterSheet = false },
                                 modifier = Modifier.fillMaxWidth()
@@ -622,95 +655,4 @@ private fun ActiveFilterChip(label: String, onRemove: () -> Unit) {
             Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(14.dp))
         }
     )
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun NewActivityCard(
-    activity: Activity,
-    useKm: Boolean,
-    isSelected: Boolean,
-    isSelectionMode: Boolean,
-    onLongClick: () -> Unit,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer
-            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-        )
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (isSelected) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                if (isSelectionMode && isSelected) {
-                    Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.onPrimary)
-                } else {
-                    Icon(
-                        activityIcon(activity.type),
-                        null,
-                        tint = if (isSelected) MaterialTheme.colorScheme.onPrimary
-                        else MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
-
-            Column(Modifier.weight(1f)) {
-                Text(
-                    activityTypeDisplayName(activity.type),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    formatDate(activity.timestamp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        formatDistance(activity.distanceMeters, useKm),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        formatDuration(activity.durationSeconds),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                if (!isSelectionMode) {
-                    Icon(
-                        imageVector = Icons.Default.ChevronRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-        }
-    }
 }

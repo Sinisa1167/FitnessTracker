@@ -435,7 +435,7 @@ fun ActivityTypeChip(
     onSelect: (String) -> Unit
 ) {
     val containerColor = if (isSelected)
-        MaterialTheme.colorScheme.primary
+        getActivityColor(typeKey)
     else
         MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
 

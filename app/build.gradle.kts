@@ -42,6 +42,8 @@ android {
 dependencies {
     implementation(libs.androidx.compose.remote.creation.core)
     implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.foundation)
+    implementation(libs.androidx.compose.animation)
     val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)
     androidTestImplementation(composeBom)

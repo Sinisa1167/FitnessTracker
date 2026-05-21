@@ -151,4 +151,12 @@
     <string name="detail_pace">Pace</string>
     <string name="detail_edit_description">Edit description</string>
 
+    <string name="history_filter_min_duration">Minimum duration</string>
+    <string name="history_filter_duration_hint">e.g. 30</string>
+
+    <string name="stats_total_duration">Duration</string>
+    <string name="stats_total_calories">Calories</string>
+    <string name="stats_last30days">Distance (last 30 days)</string>
+    <string name="stats_last90days">Distance (last 90 days)</string>
+
 </resources>

@@ -119,7 +119,6 @@ class TrackingService : LifecycleService() {
 
     override fun onDestroy() {
         super.onDestroy()
-        serviceScope.cancel()
     }
 
     private fun addPathPoint(location: Location) {
