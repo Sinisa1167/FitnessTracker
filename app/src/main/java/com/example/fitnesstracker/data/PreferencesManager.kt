@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.fitnesstracker.data.model.ActivityType
 import com.example.fitnesstracker.worker.ReminderWorker
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -28,12 +29,12 @@ data class UserProfile(
 }
 
 val DEFAULT_GOALS = mapOf(
-    "Trčanje"    to ActivityGoal(5f, 30f),
-    "Hodanje"    to ActivityGoal(3f, 45f),
-    "Biciklizam" to ActivityGoal(20f, 60f),
-    "Plivanje"   to ActivityGoal(1f, 30f),
-    "Planinarenje" to ActivityGoal(8f, 120f),
-    "Ostalo"     to ActivityGoal(5f, 30f)
+    ActivityType.RUNNING.key  to ActivityGoal(5f, 30f),
+    ActivityType.WALKING.key  to ActivityGoal(3f, 45f),
+    ActivityType.CYCLING.key  to ActivityGoal(20f, 60f),
+    ActivityType.SWIMMING.key to ActivityGoal(1f, 30f),
+    ActivityType.HIKING.key   to ActivityGoal(8f, 120f),
+    ActivityType.OTHER.key    to ActivityGoal(5f, 30f)
 )
 
 private const val FALLBACK_WEIGHT_KG = 75f
@@ -59,8 +60,8 @@ fun calculateCalories(
     return corrected.toInt()
 }
 
-fun calculateMet(type: String, speedKmh: Float): Float = when (type) {
-    "Trčanje" -> when {
+fun calculateMet(type: String, speedKmh: Float): Float = when (ActivityType.fromKey(type)) {
+    ActivityType.RUNNING -> when {
         speedKmh <= 0f  -> 9.8f
         speedKmh < 8f   -> 6.0f
         speedKmh < 10f  -> 8.3f
@@ -69,14 +70,14 @@ fun calculateMet(type: String, speedKmh: Float): Float = when (type) {
         speedKmh < 16f  -> 12.8f
         else            -> 14.5f
     }
-    "Hodanje" -> when {
+    ActivityType.WALKING -> when {
         speedKmh <= 0f -> 3.5f
         speedKmh < 4f  -> 2.8f
         speedKmh < 5f  -> 3.5f
         speedKmh < 6f  -> 4.3f
         else           -> 5.0f
     }
-    "Biciklizam" -> when {
+    ActivityType.CYCLING -> when {
         speedKmh <= 0f  -> 7.5f
         speedKmh < 16f  -> 4.0f
         speedKmh < 20f  -> 6.8f
@@ -84,9 +85,9 @@ fun calculateMet(type: String, speedKmh: Float): Float = when (type) {
         speedKmh < 30f  -> 10.0f
         else            -> 12.0f
     }
-    "Plivanje"      -> 8.0f
-    "Planinarenje"  -> 6.0f
-    "Ostalo"        -> 5.0f
+    ActivityType.SWIMMING -> 8.0f
+    ActivityType.HIKING  -> 6.0f
+    ActivityType.OTHER   -> 5.0f
     else            -> 5.0f
 }
 class PreferencesManager(private val context: Context) {

@@ -5,7 +5,7 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
-import android.os.Looper
+import android.os.HandlerThread
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleService
@@ -27,6 +27,7 @@ class TrackingService : LifecycleService() {
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
+    private lateinit var locationHandlerThread: HandlerThread
     private var startTimeMillis = 0L
     private val speedSamples = mutableListOf<Float>()
     private var timerJob: Job? = null
@@ -50,6 +51,7 @@ class TrackingService : LifecycleService() {
 
     override fun onCreate() {
         super.onCreate()
+        locationHandlerThread = HandlerThread("LocationThread").also { it.start() }
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
@@ -72,6 +74,7 @@ class TrackingService : LifecycleService() {
         startForeground(1, buildNotification())
         isTracking.postValue(true)
         isPaused.postValue(false)
+        speedSamples.clear()
         pathPoints.postValue(mutableListOf())
         distanceMeters.postValue(0f)
         elapsedSeconds.postValue(0L)
@@ -119,6 +122,7 @@ class TrackingService : LifecycleService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        locationHandlerThread.quitSafely()
     }
 
     private fun addPathPoint(location: Location) {
@@ -162,7 +166,7 @@ class TrackingService : LifecycleService() {
             .build()
 
         try {
-            fusedLocationClient.requestLocationUpdates(request, locationCallback, Looper.getMainLooper())
+            fusedLocationClient.requestLocationUpdates(request, locationCallback, locationHandlerThread.looper)
         } catch (e: SecurityException) {
             android.util.Log.e("TrackingService", "SecurityException: ${e.message}")
         }
@@ -180,7 +184,7 @@ class TrackingService : LifecycleService() {
         return NotificationCompat.Builder(this, FitnessApp.CHANNEL_TRACKING)
             .setContentTitle(getString(R.string.notif_tracking_title))
             .setContentText(getString(R.string.notif_tracking_text))
-            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setSilent(true)

@@ -25,11 +25,12 @@ import com.example.fitnesstracker.R
 import com.example.fitnesstracker.data.DEFAULT_GOALS
 import com.example.fitnesstracker.data.PreferencesManager
 import com.example.fitnesstracker.data.UserProfile
+import com.example.fitnesstracker.ui.ActivityViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(viewModel: ActivityViewModel) {
     val lang    = LocalAppLang.current
     val context = LocalContext.current
     val prefs   = remember { PreferencesManager(context) }
@@ -41,8 +42,8 @@ fun SettingsScreen() {
     val units                by prefs.units.collectAsState(initial = "km")
     val notificationsEnabled by prefs.notificationsEnabled.collectAsState(initial = true)
     val reminderHours        by prefs.reminderHours.collectAsState(initial = 48)
-    val allGoals             by prefs.allGoals.collectAsState(initial = emptyMap())
     val userProfile          by prefs.userProfile.collectAsState(initial = null)
+    val allGoals by viewModel.allGoals.collectAsState()
 
     val profile = userProfile ?: return
 
@@ -332,7 +333,7 @@ fun SettingsScreen() {
                             onValueChangeFinished = {
                                 val rounded = distanceSlider.toInt().toFloat().coerceIn(1f, 50f)
                                 distanceSlider = rounded
-                                scope.launch { prefs.setGoalDistance(selectedGoalType, rounded) }
+                                viewModel.setGoalDistance(selectedGoalType, rounded)
                             },
                             valueRange = 1f..50f,
                             steps      = 0
@@ -366,7 +367,7 @@ fun SettingsScreen() {
                             onValueChangeFinished = {
                                 val rounded = (kotlin.math.round(durationSlider / 5f) * 5f).coerceIn(5f, 180f)
                                 durationSlider = rounded
-                                scope.launch { prefs.setGoalDuration(selectedGoalType, rounded) }
+                                viewModel.setGoalDuration(selectedGoalType, rounded)
                             },
                             valueRange = 5f..180f,
                             steps      = 0

@@ -180,4 +180,8 @@
     <string name="dashboard_calories_dialog_text">Nisi podesio/la svoje mjere. Kalorije se računaju na osnovu prosječne tjelesne mase (75 kg). Za precizniji rezultat, unesi svoje podatke u Postavke.</string>
     <string name="dashboard_calories_dialog_go">Idi na Postavke</string>
     <string name="dashboard_calories_dialog_dismiss">U redu</string>
+
+    <string name="error_save_activity">Greška pri čuvanju aktivnosti</string>
+    <string name="error_delete_activity">Greška pri brisanju aktivnosti</string>
+    <string name="error_update_description">Greška pri ažuriranju opisa</string>
 </resources>

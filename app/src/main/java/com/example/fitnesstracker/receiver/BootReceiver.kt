@@ -10,37 +10,38 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
-import java.util.Calendar
+import com.example.fitnesstracker.util.DateUtils
 
 class BootReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
 
+        val result = goAsync()
+
         CoroutineScope(Dispatchers.IO).launch {
-            val prefs           = PreferencesManager(context)
-            val notificationsOn = prefs.notificationsEnabled.first()
-            if (!notificationsOn) return@launch
+            try {
+                val prefs = PreferencesManager(context)
+                val notificationsOn = prefs.notificationsEnabled.first()
+                if (!notificationsOn) return@launch
 
-            val lastActivity = prefs.getLastActivityTimestamp()
-            if (lastActivity == 0L) {
-                ReminderWorker.scheduleFromNow(context)
-                return@launch
+                val lastActivity = prefs.getLastActivityTimestamp()
+                if (lastActivity == 0L) {
+                    ReminderWorker.scheduleFromNow(context)
+                    return@launch
+                }
+
+                val startOfToday = DateUtils.startOfTodayMillis()
+
+                if (lastActivity >= startOfToday) return@launch
+
+                val elapsed = System.currentTimeMillis() - lastActivity
+                val delayMs = TimeUnit.HOURS.toMillis(48) - elapsed
+
+                ReminderWorker.scheduleWithDelay(context, delayMs)
+            } finally {
+                result.finish()
             }
-
-            val startOfToday = Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, 0)
-                set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }.timeInMillis
-
-            if (lastActivity >= startOfToday) return@launch
-
-            val elapsed  = System.currentTimeMillis() - lastActivity
-            val delayMs  = TimeUnit.HOURS.toMillis(48) - elapsed
-
-            ReminderWorker.scheduleWithDelay(context, delayMs)
         }
     }
 }

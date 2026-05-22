@@ -31,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.example.fitnesstracker.data.model.ActivityType
 
 
 @Composable
@@ -44,22 +45,22 @@ fun activityTypeDisplayName(type: String): String = when (type) {
     else         -> type
 }
 
-fun activityIcon(type: String) = when (type.lowercase()) {
-    "trčanje"    -> Icons.AutoMirrored.Filled.DirectionsRun
-    "hodanje"    -> Icons.AutoMirrored.Filled.DirectionsWalk
-    "plivanje"   -> Icons.Default.Pool
-    "biciklizam" -> Icons.AutoMirrored.Filled.DirectionsBike
-    "planinarenje" -> Icons.Default.Terrain
-    else         -> Icons.Default.FitnessCenter
+fun activityIcon(type: String) = when (ActivityType.fromKey(type)) {
+    ActivityType.RUNNING  -> Icons.AutoMirrored.Filled.DirectionsRun
+    ActivityType.WALKING  -> Icons.AutoMirrored.Filled.DirectionsWalk
+    ActivityType.SWIMMING -> Icons.Default.Pool
+    ActivityType.CYCLING  -> Icons.AutoMirrored.Filled.DirectionsBike
+    ActivityType.HIKING   -> Icons.Default.Terrain
+    ActivityType.OTHER    -> Icons.Default.FitnessCenter
 }
 
-fun getActivityColor(type: String): Color = when (type) {
-    "Trčanje"      -> Color(0xFF2196F3)
-    "Hodanje"      -> Color(0xFF4CAF50)
-    "Biciklizam"   -> Color(0xFFFF9800)
-    "Plivanje"     -> Color(0xFF00BCD4)
-    "Planinarenje" -> Color(0xFF795548)
-    else           -> Color(0xFF9E9E9E)
+fun getActivityColor(type: String) = when (ActivityType.fromKey(type)) {
+    ActivityType.RUNNING  -> Color(0xFF2196F3)
+    ActivityType.WALKING  -> Color(0xFF4CAF50)
+    ActivityType.CYCLING  -> Color(0xFFFF9800)
+    ActivityType.SWIMMING -> Color(0xFF00BCD4)
+    ActivityType.HIKING   -> Color(0xFF795548)
+    ActivityType.OTHER    -> Color(0xFF9E9E9E)
 }
 
 @OptIn(ExperimentalFoundationApi::class)

@@ -28,6 +28,7 @@ import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Polyline
 import android.view.MotionEvent
+import com.example.fitnesstracker.data.model.ActivityType
 
 @Composable
 fun ActivityDetailScreen(
@@ -42,6 +43,16 @@ fun ActivityDetailScreen(
     var activity       by remember { mutableStateOf<com.example.fitnesstracker.data.model.Activity?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showEditDialog   by remember { mutableStateOf(false) }
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    val error by viewModel.error.collectAsState()
+
+    error?.let { message ->
+        LaunchedEffect(message) {
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearError()
+        }
+    }
 
     LaunchedEffect(activityId) {
         activity = viewModel.getById(activityId)
@@ -102,7 +113,7 @@ fun ActivityDetailScreen(
                 }
             )
         }
-
+        Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             Row(
                 modifier          = Modifier.fillMaxWidth().padding(8.dp),
@@ -213,18 +224,18 @@ fun ActivityDetailScreen(
                         DetailItem(
                             Modifier.weight(1f),
                             Icons.Default.Timer,
-                            when (act.type) {
-                                "Trčanje", "Hodanje", "Planinarenje" ->
+                            when (ActivityType.fromKey(act.type)) {
+                                ActivityType.RUNNING, ActivityType.WALKING, ActivityType.HIKING ->
                                     stringResource(R.string.detail_pace)
-                                "Plivanje" ->
+                                ActivityType.SWIMMING ->
                                     stringResource(R.string.detail_pace) + " /100m"
                                 else ->
                                     stringResource(R.string.detail_speed)
                             },
-                            when (act.type) {
-                                "Trčanje", "Hodanje", "Planinarenje" ->
+                            when (ActivityType.fromKey(act.type)) {
+                                ActivityType.RUNNING, ActivityType.WALKING, ActivityType.HIKING ->
                                     "${formatPace(act.avgSpeedKmh, useKm)}/${if (useKm) "km" else "mi"}"
-                                "Plivanje" ->
+                                ActivityType.SWIMMING ->
                                     "${formatSwimPace(act.avgSpeedKmh)}/100m"
                                 else ->
                                     formatSpeed(act.avgSpeedKmh, useKm)
@@ -258,6 +269,11 @@ fun ActivityDetailScreen(
                 }
             }
             Spacer(modifier = Modifier.height(24.dp))
+        }
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier  = Modifier.align(Alignment.BottomCenter)
+            )
         }
     } ?: Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         CircularProgressIndicator()

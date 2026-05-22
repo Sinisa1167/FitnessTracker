@@ -9,12 +9,17 @@ class Repository(context: Context) {
 
     private val dao = AppDatabase.getInstance(context).activityDao()
 
-    suspend fun insert(activity: Activity) = dao.insert(activity)
+    suspend fun insert(activity: Activity): Result<Long> = runCatching {
+        dao.insert(activity)
+    }
 
-    suspend fun delete(activity: Activity) = dao.delete(activity)
+    suspend fun delete(activity: Activity): Result<Unit> = runCatching {
+        dao.delete(activity)
+    }
 
-    suspend fun updateDescription(id: Long, description: String) =
+    suspend fun updateDescription(id: Long, description: String): Result<Unit> = runCatching {
         dao.updateDescription(id, description)
+    }
 
     fun getAll(): Flow<List<Activity>> = dao.getAll()
 

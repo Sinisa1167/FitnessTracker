@@ -19,6 +19,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -36,16 +37,13 @@ import com.example.fitnesstracker.ui.screens.StatisticsScreen
 import com.example.fitnesstracker.ui.screens.TrackingScreen
 import com.example.fitnesstracker.ui.theme.FitnessTrackerTheme
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import java.util.Locale
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.example.fitnesstracker.service.TrackingService
+import com.example.fitnesstracker.util.navigateMain
 
 val LocalAppLang = compositionLocalOf { "sr" }
-
-private val NAV_LABELS = mapOf(
-    "sr" to listOf("Početna", "Trening", "Istorija", "Statistike", "Podešavanja"),
-    "en" to listOf("Home",    "Training", "History", "Statistics",  "Settings")
-)
 
 class MainActivity : ComponentActivity() {
 
@@ -54,118 +52,128 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        pendingNavRoute = intent.getStringExtra(com.example.fitnesstracker.service.TrackingService.EXTRA_NAVIGATE_TO)
+        pendingNavRoute = intent.getStringExtra(TrackingService.EXTRA_NAVIGATE_TO)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        installSplashScreen()
-        val initialLang = runBlocking {
-            PreferencesManager(applicationContext).language.first()
-        }
-        applyLocale(initialLang)
-        pendingNavRoute = intent.getStringExtra(com.example.fitnesstracker.service.TrackingService.EXTRA_NAVIGATE_TO)
+        val splashScreen = installSplashScreen()
+
+        var initialLang: String
+        var isReady = false
+
+        splashScreen.setKeepOnScreenCondition { !isReady }
 
         super.onCreate(savedInstanceState)
 
-        setContent {
-            val prefs = remember { PreferencesManager(applicationContext) }
-            val currentLang by prefs.language.collectAsState(initial = initialLang)
+        lifecycleScope.launch {
+            initialLang = PreferencesManager(applicationContext).language.first()
+            applyLocale(initialLang)
+            pendingNavRoute = intent.getStringExtra(
+                TrackingService.EXTRA_NAVIGATE_TO
+            )
+            isReady = true
 
-            LaunchedEffect(currentLang) {
-                applyLocale(currentLang)
-            }
+            setContent {
+                val prefs = remember { PreferencesManager(applicationContext) }
+                val currentLang by prefs.language.collectAsState(initial = initialLang)
 
-            CompositionLocalProvider(LocalAppLang provides currentLang) {
-                FitnessTrackerTheme {
-                    val navController = rememberNavController()
-                    val viewModel: ActivityViewModel = viewModel()
-                    val navBackStackEntry by navController.currentBackStackEntryAsState()
-                    val currentDestination = navBackStackEntry?.destination
+                LaunchedEffect(currentLang) {
+                    applyLocale(currentLang)
+                }
 
-                    LaunchedEffect(Unit) {
-                        pendingNavRoute?.let { route ->
-                            pendingNavRoute = null
-                            navController.navigate(route) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
+                CompositionLocalProvider(LocalAppLang provides currentLang) {
+                    FitnessTrackerTheme {
+                        val navController = rememberNavController()
+                        val viewModel: ActivityViewModel = viewModel()
+                        val navBackStackEntry by navController.currentBackStackEntryAsState()
+                        val currentDestination = navBackStackEntry?.destination
+
+                        LaunchedEffect(Unit) {
+                            pendingNavRoute?.let { route ->
+                                pendingNavRoute = null
+                                navController.navigateMain(route)
                             }
                         }
-                    }
 
-                    val lang = LocalAppLang.current
-                    val navLabels = NAV_LABELS[lang] ?: NAV_LABELS["sr"]!!
+                        val navLabels = remember(currentLang) {
+                            when (currentLang) {
+                                "en" -> listOf("Home", "Training", "History", "Statistics", "Settings")
+                                else -> listOf("Početna", "Trening", "Istorija", "Statistike", "Podešavanja")
+                            }
+                        }
+                        val bottomNavRoutes = listOf(
+                            Triple("dashboard",  Icons.Default.Home,     navLabels[0]),
+                            Triple("tracking",   Icons.Default.Add,      navLabels[1]),
+                            Triple("history",    Icons.Default.History,  navLabels[2]),
+                            Triple("statistics", Icons.Default.BarChart, navLabels[3]),
+                            Triple("settings",   Icons.Default.Settings, navLabels[4])
+                        )
 
-                    val bottomNavRoutes = listOf(
-                        Triple("dashboard",  Icons.Default.Home,     navLabels[0]),
-                        Triple("tracking",   Icons.Default.Add,      navLabels[1]),
-                        Triple("history",    Icons.Default.History,  navLabels[2]),
-                        Triple("statistics", Icons.Default.BarChart, navLabels[3]),
-                        Triple("settings",   Icons.Default.Settings, navLabels[4])
-                    )
+                        val showBottomBar = currentDestination?.route != "detail/{activityId}"
 
-                    val showBottomBar = currentDestination?.route != "detail/{activityId}"
-
-                    Scaffold(
-                        bottomBar = {
-                            if (showBottomBar) {
-                                NavigationBar {
-                                    bottomNavRoutes.forEach { (route, icon, label) ->
-                                        NavigationBarItem(
-                                            icon     = { Icon(icon, contentDescription = label) },
-                                            label    = {
-                                                Text(
-                                                    text     = label,
-                                                    style    = MaterialTheme.typography.labelSmall,
-                                                    maxLines = 1,
-                                                    softWrap = false
-                                                )
-                                            },
-                                            selected = currentDestination?.hierarchy?.any { it.route == route } == true,
-                                            onClick  = {
-                                                navController.navigate(route) {
-                                                    popUpTo(navController.graph.findStartDestination().id) {
-                                                        saveState = true
+                        Scaffold(
+                            bottomBar = {
+                                if (showBottomBar) {
+                                    NavigationBar {
+                                        bottomNavRoutes.forEach { (route, icon, label) ->
+                                            NavigationBarItem(
+                                                icon     = { Icon(icon, contentDescription = label) },
+                                                label    = {
+                                                    Text(
+                                                        text     = label,
+                                                        style    = MaterialTheme.typography.labelSmall,
+                                                        maxLines = 1,
+                                                        softWrap = false
+                                                    )
+                                                },
+                                                selected = currentDestination?.hierarchy?.any {
+                                                    it.route == route
+                                                } == true,
+                                                onClick  = {
+                                                    navController.navigate(route) {
+                                                        popUpTo(navController.graph.findStartDestination().id) {
+                                                            saveState = true
+                                                        }
+                                                        launchSingleTop = true
+                                                        restoreState    = true
                                                     }
-                                                    launchSingleTop = true
-                                                    restoreState    = true
                                                 }
-                                            }
-                                        )
+                                            )
+                                        }
                                     }
                                 }
                             }
-                        }
-                    ) { innerPadding ->
-                        NavHost(
-                            navController    = navController,
-                            startDestination = "dashboard",
-                            modifier         = Modifier.padding(innerPadding)
-                        ) {
-                            composable("dashboard") {
-                                DashboardScreen(viewModel = viewModel, navController = navController)
-                            }
-                            composable("tracking") {
-                                TrackingScreen(viewModel = viewModel, navController = navController)
-                            }
-                            composable("history") {
-                                HistoryScreen(viewModel = viewModel, navController = navController)
-                            }
-                            composable("statistics") {
-                                StatisticsScreen(viewModel = viewModel)
-                            }
-                            composable("settings") {
-                                SettingsScreen()
-                            }
-                            composable("detail/{activityId}") { backStackEntry ->
-                                val activityId = backStackEntry.arguments
-                                    ?.getString("activityId")?.toLongOrNull()
-                                    ?: return@composable
-                                ActivityDetailScreen(
-                                    activityId    = activityId,
-                                    viewModel     = viewModel,
-                                    navController = navController
-                                )
+                        ) { innerPadding ->
+                            NavHost(
+                                navController    = navController,
+                                startDestination = "dashboard",
+                                modifier         = Modifier.padding(innerPadding)
+                            ) {
+                                composable("dashboard") {
+                                    DashboardScreen(viewModel = viewModel, navController = navController)
+                                }
+                                composable("tracking") {
+                                    TrackingScreen(viewModel = viewModel, navController = navController)
+                                }
+                                composable("history") {
+                                    HistoryScreen(viewModel = viewModel, navController = navController)
+                                }
+                                composable("statistics") {
+                                    StatisticsScreen(viewModel = viewModel)
+                                }
+                                composable("settings") {
+                                    SettingsScreen(viewModel = viewModel)
+                                }
+                                composable("detail/{activityId}") { backStackEntry ->
+                                    val activityId = backStackEntry.arguments
+                                        ?.getString("activityId")?.toLongOrNull()
+                                        ?: return@composable
+                                    ActivityDetailScreen(
+                                        activityId    = activityId,
+                                        viewModel     = viewModel,
+                                        navController = navController
+                                    )
+                                }
                             }
                         }
                     }

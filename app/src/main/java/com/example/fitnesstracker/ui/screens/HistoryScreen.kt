@@ -56,6 +56,16 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
     var dateTo by remember { mutableStateOf<Long?>(null) }
     var minDuration by remember { mutableStateOf("") }
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    val error by viewModel.error.collectAsState()
+
+    error?.let { message ->
+        LaunchedEffect(message) {
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearError()
+        }
+    }
+
     val hasActiveFilters = filterType.isNotBlank() || minDistance.isNotBlank() || minDuration.isNotBlank() || dateFrom != null || dateTo != null
     val isSelectionMode = selectedIds.isNotEmpty()
 
@@ -143,10 +153,9 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
         )
     }
 
-    // Root Box — overlay sheet lives here, completely isolated from content layout
+    // Root Box
     Box(modifier = Modifier.fillMaxSize()) {
-
-        // ── Main content ───────────────────────────────────────────────────────
+        // Main content
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -328,7 +337,7 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
             }
         }
 
-        // ── Filter sheet overlay — in-tree, fully isolated from content layout ─
+        // Filter sheet overlay
         AnimatedVisibility(
             visible = showFilterSheet,
             modifier = Modifier.align(Alignment.BottomCenter),
@@ -585,6 +594,10 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                 }
             }
         }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier  = Modifier.align(Alignment.BottomCenter)
+        )
     }
 }
 

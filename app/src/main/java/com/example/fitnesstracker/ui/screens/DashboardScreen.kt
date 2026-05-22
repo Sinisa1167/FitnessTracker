@@ -25,6 +25,7 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.example.fitnesstracker.R
 import com.example.fitnesstracker.data.calculateCalories
 import com.example.fitnesstracker.ui.ActivityViewModel
+import com.example.fitnesstracker.util.navigateMain
 
 @Composable
 fun DashboardScreen(
@@ -88,11 +89,8 @@ fun DashboardScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showProfileDialog = false
-                    navController.navigate("settings") {
-                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
+                    navController.navigateMain("settings")
+
                 }) {
                     Text(stringResource(R.string.dashboard_calories_dialog_go))
                 }
@@ -194,11 +192,7 @@ fun DashboardScreen(
 
         Button(
             onClick = {
-                navController.navigate("tracking") {
-                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                    launchSingleTop = true
-                    restoreState = true
-                }
+                navController.navigateMain("tracking")
             },
             modifier = Modifier.fillMaxWidth().height(56.dp),
             shape = MaterialTheme.shapes.large
@@ -223,11 +217,7 @@ fun DashboardScreen(
                 fontWeight = FontWeight.Bold
             )
             TextButton(onClick = {
-                navController.navigate("history") {
-                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                    launchSingleTop = true
-                    restoreState = true
-                }
+                navController.navigateMain("history")
             }) {
                 Text(stringResource(R.string.dashboard_see_all))
             }

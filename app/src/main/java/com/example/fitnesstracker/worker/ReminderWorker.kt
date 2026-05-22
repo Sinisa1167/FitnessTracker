@@ -21,7 +21,7 @@ class ReminderWorker(context: Context, params: WorkerParameters) : CoroutineWork
         val notification = NotificationCompat.Builder(applicationContext, FitnessApp.CHANNEL_REMINDER)
             .setContentTitle(applicationContext.getString(R.string.notif_reminder_title))
             .setContentText(applicationContext.getString(R.string.notif_reminder_text))
-            .setSmallIcon(android.R.drawable.ic_menu_compass)
+            .setSmallIcon(R.drawable.ic_notification)
             .setAutoCancel(true)
             .build()
 

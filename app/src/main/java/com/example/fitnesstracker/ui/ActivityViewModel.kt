@@ -3,6 +3,7 @@ package com.example.fitnesstracker.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.fitnesstracker.R
 import com.example.fitnesstracker.data.ActivityGoal
 import com.example.fitnesstracker.data.DEFAULT_GOALS
 import com.example.fitnesstracker.data.PreferencesManager
@@ -11,7 +12,7 @@ import com.example.fitnesstracker.data.UserProfile
 import com.example.fitnesstracker.data.model.Activity
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.util.*
+import com.example.fitnesstracker.util.DateUtils
 
 data class TypeDayStat(
     val type: String,
@@ -29,15 +30,24 @@ class ActivityViewModel(application: Application) : AndroidViewModel(application
     private val _searchQuery = MutableStateFlow("")
     private val _filterType  = MutableStateFlow("")
 
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error
+
     val units: StateFlow<String> = prefs.units
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "km")
 
     val userProfile: StateFlow<UserProfile> = prefs.userProfile
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserProfile())
 
+    private val _allActivities = repository.getAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allGoals: StateFlow<Map<String, ActivityGoal>> = prefs.allGoals
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
     val activities: StateFlow<List<Activity>> = _filterType
         .flatMapLatest { type ->
-            if (type.isBlank()) repository.getAll() else repository.getByType(type)
+            if (type.isBlank()) _allActivities else repository.getByType(type)
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -52,7 +62,7 @@ class ActivityViewModel(application: Application) : AndroidViewModel(application
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     val todayStatsByType: StateFlow<List<TypeDayStat>> = combine(
-        repository.getAll(),
+        _allActivities,
         prefs.allGoals
     ) { all, goals ->
         val todayStart      = startOfTodayMillis()
@@ -75,28 +85,49 @@ class ActivityViewModel(application: Application) : AndroidViewModel(application
     fun saveActivity(activity: Activity) {
         viewModelScope.launch {
             repository.insert(activity)
-            prefs.recordActivityCompleted()
+                .onSuccess { prefs.recordActivityCompleted() }
+                .onFailure {
+                    _error.value = getApplication<Application>()
+                        .getString(R.string.error_save_activity)
+                }
         }
     }
 
     fun deleteActivity(activity: Activity) {
-        viewModelScope.launch { repository.delete(activity) }
+        viewModelScope.launch {
+            repository.delete(activity)
+                .onFailure {
+                    _error.value = getApplication<Application>()
+                        .getString(R.string.error_delete_activity)
+                }
+        }
     }
+
+    fun updateDescription(id: Long, description: String) {
+        viewModelScope.launch {
+            repository.updateDescription(id, description)
+                .onFailure {
+                    _error.value = getApplication<Application>()
+                        .getString(R.string.error_update_description)
+                }
+        }
+    }
+
+    fun clearError() { _error.value = null }
 
     suspend fun getById(id: Long): Activity? = repository.getById(id)
 
-    private fun startOfTodayMillis(): Long = Calendar.getInstance().apply {
-        set(Calendar.HOUR_OF_DAY, 0)
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
-    }.timeInMillis
+    private fun startOfTodayMillis() = DateUtils.startOfTodayMillis()
 
     private fun defaultTodayStats() = DEFAULT_GOALS.keys.map { type ->
         TypeDayStat(type, 0f, 0L, 0f, DEFAULT_GOALS[type]!!)
     }
 
-    fun updateDescription(id: Long, description: String) {
-        viewModelScope.launch { repository.updateDescription(id, description) }
+    fun setGoalDistance(type: String, value: Float) {
+        viewModelScope.launch { prefs.setGoalDistance(type, value) }
+    }
+
+    fun setGoalDuration(type: String, value: Float) {
+        viewModelScope.launch { prefs.setGoalDuration(type, value) }
     }
 }

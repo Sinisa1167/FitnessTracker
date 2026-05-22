@@ -38,11 +38,12 @@ import androidx.navigation.NavController
 import com.example.fitnesstracker.R
 import com.example.fitnesstracker.data.calculateCalories
 import com.example.fitnesstracker.data.model.Activity
+import com.example.fitnesstracker.data.model.ActivityType
 import com.example.fitnesstracker.service.TrackingService
 import com.example.fitnesstracker.ui.ActivityViewModel
 
 // Internal keys / database.
-val ACTIVITY_TYPE_KEYS = listOf("Trčanje", "Hodanje", "Biciklizam", "Plivanje", "Planinarenje", "Ostalo")
+val ACTIVITY_TYPE_KEYS = ActivityType.allKeys
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,11 +69,25 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
     val avgSpeed        = if (useKm) avgSpeedKmh else avgSpeedKmh * 0.621371f
 
     var selectedType   by rememberSaveable { mutableStateOf("Trčanje") }
-    val caloriesBurned = calculateCalories(selectedType, elapsedSeconds, userProfile, avgSpeedKmh)
+
+    val caloriesBurned = remember(elapsedSeconds / 10, selectedType) {
+        calculateCalories(selectedType, elapsedSeconds, userProfile, avgSpeedKmh)
+    }
+
     var description                   by remember { mutableStateOf("") }
     var showSaveDialog                by remember { mutableStateOf(false) }
     var showPermissionDialog          by remember { mutableStateOf(false) }
     var showLocationExplanationDialog by remember { mutableStateOf(false) }
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    val error by viewModel.error.collectAsState()
+
+    error?.let { message ->
+        LaunchedEffect(message) {
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearError()
+        }
+    }
 
     val locationManager = remember {
         context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
@@ -203,6 +218,7 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
         )
     }
 
+    Box(modifier = Modifier.fillMaxSize()) {
     // Main content
     Column(
         modifier            = Modifier
@@ -390,6 +406,11 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
                 )
             }
         }
+    }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier  = Modifier.align(Alignment.BottomCenter)
+        )
     }
 }
 
