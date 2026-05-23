@@ -13,6 +13,8 @@ import com.example.fitnesstracker.data.model.Activity
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import com.example.fitnesstracker.util.DateUtils
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 data class TypeDayStat(
     val type: String,
@@ -65,10 +67,15 @@ class ActivityViewModel(application: Application) : AndroidViewModel(application
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), defaultTodayStats())
 
-    fun saveActivity(activity: Activity) {
+    fun saveActivity(activity: Activity, onSuccess: () -> Unit = {}) {
         viewModelScope.launch {
             repository.insert(activity)
-                .onSuccess { prefs.recordActivityCompleted() }
+                .onSuccess {
+                    prefs.recordActivityCompleted()
+                    withContext(Dispatchers.Main) {
+                        onSuccess()
+                    }
+                }
                 .onFailure {
                     _error.value = getApplication<Application>()
                         .getString(R.string.error_save_activity)
@@ -76,9 +83,24 @@ class ActivityViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun deleteActivity(activity: Activity) {
+    fun deleteActivity(activity: Activity, onSuccess: () -> Unit = {}) {
         viewModelScope.launch {
             repository.delete(activity)
+                .onSuccess {
+                    withContext(Dispatchers.Main) {
+                        onSuccess()
+                    }
+                }
+                .onFailure {
+                    _error.value = getApplication<Application>()
+                        .getString(R.string.error_delete_activity)
+                }
+        }
+    }
+
+    fun deleteActivities(ids: Set<Long>) {
+        viewModelScope.launch {
+            repository.deleteByIds(ids.toList())
                 .onFailure {
                     _error.value = getApplication<Application>()
                         .getString(R.string.error_delete_activity)

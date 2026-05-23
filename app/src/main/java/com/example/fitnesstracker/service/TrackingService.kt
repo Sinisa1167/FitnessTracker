@@ -131,7 +131,7 @@ class TrackingService : LifecycleService() {
     }
 
     private fun addPathPoint(location: Location) {
-        val points = pathPoints.value ?: mutableListOf()
+        val points = (pathPoints.value ?: emptyList()).toMutableList()
         if (points.isNotEmpty()) {
             val last = points.last()
             val result = FloatArray(1)
@@ -149,6 +149,8 @@ class TrackingService : LifecycleService() {
             speedSampleSum += kmh
             currentSpeedKmh.postValue(kmh)
             avgSpeedKmh.postValue(speedSampleSum / speedSampleCount)
+        } else {
+            currentSpeedKmh.postValue(0f)
         }
 
         points.add(location)

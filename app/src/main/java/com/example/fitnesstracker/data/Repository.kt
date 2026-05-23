@@ -17,6 +17,10 @@ class Repository(context: Context) {
         dao.delete(activity)
     }
 
+    suspend fun deleteByIds(ids: List<Long>): Result<Unit> = runCatching {
+        dao.deleteByIds(ids)
+    }
+
     suspend fun updateDescription(id: Long, description: String): Result<Unit> = runCatching {
         dao.updateDescription(id, description)
     }

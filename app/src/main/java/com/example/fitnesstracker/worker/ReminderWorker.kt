@@ -31,11 +31,9 @@ class ReminderWorker(context: Context, params: WorkerParameters) : CoroutineWork
     companion object {
         private const val WORK_NAME = "reminder_work"
 
-        suspend fun scheduleFromNow(context: Context) {
-            val hours = PreferencesManager(context).reminderHours.first()
+        suspend fun scheduleFromNow(context: Context, hours: Int) {
             val request = OneTimeWorkRequestBuilder<ReminderWorker>()
                 .setInitialDelay(hours.toLong(), TimeUnit.HOURS)
-                .setConstraints(Constraints.Builder().build())
                 .build()
             WorkManager.getInstance(context).enqueueUniqueWork(
                 WORK_NAME, ExistingWorkPolicy.REPLACE, request

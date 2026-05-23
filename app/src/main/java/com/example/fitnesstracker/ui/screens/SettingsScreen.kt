@@ -31,7 +31,6 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(viewModel: ActivityViewModel) {
-    val lang    = LocalAppLang.current
     val context = LocalContext.current
     val prefs   = remember { PreferencesManager(context) }
     val scope   = rememberCoroutineScope()
@@ -418,7 +417,7 @@ fun SettingsScreen(viewModel: ActivityViewModel) {
                                         onClick  = {
                                             scope.launch {
                                                 prefs.setReminderHours(hours)
-                                                com.example.fitnesstracker.worker.ReminderWorker.scheduleFromNow(context)
+                                                com.example.fitnesstracker.worker.ReminderWorker.scheduleFromNow(context, hours)
                                             }
                                         },
                                         label = { Text("${hours}h") }

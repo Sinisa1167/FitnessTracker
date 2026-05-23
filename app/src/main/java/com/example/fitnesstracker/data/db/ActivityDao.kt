@@ -13,6 +13,9 @@ interface ActivityDao {
     @Delete
     suspend fun delete(activity: Activity)
 
+    @Query("DELETE FROM activities WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<Long>)
+
     @Query("UPDATE activities SET description = :description WHERE id = :id")
     suspend fun updateDescription(id: Long, description: String)
 

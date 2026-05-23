@@ -147,8 +147,12 @@ class PreferencesManager(private val context: Context) {
 
     suspend fun setNotifications(enabled: Boolean) {
         context.dataStore.edit { it[KEY_NOTIFICATIONS] = enabled }
-        if (enabled) ReminderWorker.scheduleFromNow(context)
-        else         ReminderWorker.cancel(context)
+        if (enabled) {
+            val hours = reminderHours.first()
+            ReminderWorker.scheduleFromNow(context, hours)
+        } else {
+            ReminderWorker.cancel(context)
+        }
     }
 
     suspend fun setGoalDistance(type: String, value: Float) {
@@ -177,7 +181,8 @@ class PreferencesManager(private val context: Context) {
     suspend fun recordActivityCompleted() {
         context.dataStore.edit { it[KEY_LAST_ACTIVITY_TIME] = System.currentTimeMillis() }
         if (notificationsEnabled.first()) {
-            ReminderWorker.scheduleFromNow(context)
+            val hours = reminderHours.first()
+            ReminderWorker.scheduleFromNow(context, hours)
         }
     }
 

@@ -68,9 +68,9 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
     val currentSpeed    = if (useKm) currentSpeedKmh else currentSpeedKmh * 0.621371f
     val avgSpeed        = if (useKm) avgSpeedKmh else avgSpeedKmh * 0.621371f
 
-    var selectedType   by rememberSaveable { mutableStateOf("Trčanje") }
+    var selectedType by rememberSaveable { mutableStateOf(ActivityType.RUNNING.key) }
 
-    val caloriesBurned = remember(elapsedSeconds / 10, selectedType) {
+    val caloriesBurned = remember(elapsedSeconds / 10, selectedType, userProfile, avgSpeedKmh.toInt()) {
         calculateCalories(selectedType, elapsedSeconds, userProfile, avgSpeedKmh)
     }
 
@@ -188,6 +188,7 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
                     )
                 }
             },
+            // TrackingScreen — u save dialogu:
             confirmButton = {
                 Button(onClick = {
                     val gpsPoints = TrackingService.pathPoints.value
@@ -199,15 +200,17 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
                             distanceMeters  = distanceMeters,
                             timestamp       = System.currentTimeMillis(),
                             description     = description,
-                            avgSpeedKmh = TrackingService.avgSpeedKmh.value ?: 0f,
+                            avgSpeedKmh     = TrackingService.avgSpeedKmh.value ?: 0f,
                             gpsPoints       = gpsPoints,
                             caloriesBurned  = caloriesBurned
-                        )
+                        ),
+                        onSuccess = {
+                            showSaveDialog = false
+                            navController.navigate("history") {
+                                popUpTo("tracking") { inclusive = true }
+                            }
+                        }
                     )
-                    showSaveDialog = false
-                    navController.navigate("history") {
-                        popUpTo("tracking") { inclusive = true }
-                    }
                 }) { Text(stringResource(R.string.save_confirm)) }
             },
             dismissButton = {

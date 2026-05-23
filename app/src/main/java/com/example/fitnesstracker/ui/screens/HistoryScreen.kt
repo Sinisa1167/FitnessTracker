@@ -13,6 +13,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -91,6 +92,12 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
         }
     }
 
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(displayList.size) {
+        if (displayList.isNotEmpty()) listState.animateScrollToItem(0)
+    }
+
     val allSelected = displayList.isNotEmpty() && selectedIds.containsAll(displayList.map { it.id })
 
     // Date Picker Dialog
@@ -139,7 +146,7 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
             confirmButton = {
                 Button(
                     onClick = {
-                        displayList.filter { it.id in selectedIds }.forEach { viewModel.deleteActivity(it) }
+                        viewModel.deleteActivities(selectedIds)
                         selectedIds = emptySet()
                         showDeleteDialog = false
                     },
@@ -314,6 +321,7 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                 }
             } else {
                 LazyColumn(
+                    state = listState,
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     contentPadding = PaddingValues(bottom = 100.dp)
                 ) {

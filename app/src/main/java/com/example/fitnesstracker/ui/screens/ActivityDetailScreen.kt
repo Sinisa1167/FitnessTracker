@@ -69,8 +69,9 @@ fun ActivityDetailScreen(
                 text             = { Text(stringResource(R.string.detail_delete_confirm_text)) },
                 confirmButton    = {
                     TextButton(onClick = {
-                        viewModel.deleteActivity(act)
-                        navController.popBackStack()
+                        viewModel.deleteActivity(act) {
+                            navController.popBackStack()
+                        }
                     }) {
                         Text(
                             stringResource(R.string.detail_delete_confirm),
@@ -221,26 +222,28 @@ fun ActivityDetailScreen(
                             stringResource(R.string.detail_speed),
                             formatSpeed(act.avgSpeedKmh, useKm)
                         )
-                        DetailItem(
-                            Modifier.weight(1f),
-                            Icons.Default.Timer,
-                            when (ActivityType.fromKey(act.type)) {
-                                ActivityType.RUNNING, ActivityType.WALKING, ActivityType.HIKING ->
-                                    stringResource(R.string.detail_pace)
-                                ActivityType.SWIMMING ->
-                                    stringResource(R.string.detail_pace) + " /100m"
-                                else ->
-                                    stringResource(R.string.detail_speed)
-                            },
-                            when (ActivityType.fromKey(act.type)) {
-                                ActivityType.RUNNING, ActivityType.WALKING, ActivityType.HIKING ->
+                        when (ActivityType.fromKey(act.type)) {
+                            ActivityType.RUNNING, ActivityType.WALKING,
+                            ActivityType.HIKING, ActivityType.CYCLING -> {
+                                DetailItem(
+                                    Modifier.weight(1f),
+                                    Icons.Default.Timer,
+                                    stringResource(R.string.detail_pace),
                                     "${formatPace(act.avgSpeedKmh, useKm)}/${if (useKm) "km" else "mi"}"
-                                ActivityType.SWIMMING ->
-                                    "${formatSwimPace(act.avgSpeedKmh)}/100m"
-                                else ->
-                                    formatSpeed(act.avgSpeedKmh, useKm)
+                                )
                             }
-                        )
+                            ActivityType.SWIMMING -> {
+                                DetailItem(
+                                    Modifier.weight(1f),
+                                    Icons.Default.Timer,
+                                    stringResource(R.string.detail_pace) + " /100m",
+                                    "${formatSwimPace(act.avgSpeedKmh)}/100m"
+                                )
+                            }
+                            ActivityType.OTHER -> {
+                                Spacer(Modifier.weight(1f))
+                            }
+                        }
                     }
 
                     Row(Modifier.fillMaxWidth()) {
