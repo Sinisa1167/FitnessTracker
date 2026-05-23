@@ -25,11 +25,5 @@ class Repository(context: Context) {
 
     suspend fun getById(id: Long): Activity? = dao.getById(id)
 
-    fun getByType(type: String): Flow<List<Activity>> = dao.getByType(type)
-
-    fun search(query: String): Flow<List<Activity>> = dao.search("%$query%")
-
-    fun getTotalDistanceSince(from: Long): Flow<Float?> = dao.getTotalDistanceSince(from)
-
     fun getCountSince(from: Long): Flow<Int> = dao.getCountSince(from)
 }

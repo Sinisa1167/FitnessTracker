@@ -27,9 +27,6 @@ class ActivityViewModel(application: Application) : AndroidViewModel(application
     private val repository = Repository(application)
     private val prefs      = PreferencesManager(application)
 
-    private val _searchQuery = MutableStateFlow("")
-    private val _filterType  = MutableStateFlow("")
-
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
@@ -39,30 +36,18 @@ class ActivityViewModel(application: Application) : AndroidViewModel(application
     val userProfile: StateFlow<UserProfile> = prefs.userProfile
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserProfile())
 
-    private val _allActivities = repository.getAll()
+    val activities: StateFlow<List<Activity>> = repository.getAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val allGoals: StateFlow<Map<String, ActivityGoal>> = prefs.allGoals
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
-
-    val activities: StateFlow<List<Activity>> = _filterType
-        .flatMapLatest { type ->
-            if (type.isBlank()) _allActivities else repository.getByType(type)
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    val searchResults: StateFlow<List<Activity>> = _searchQuery
-        .flatMapLatest { query ->
-            if (query.isBlank()) repository.getAll() else repository.search(query)
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val todayCount: StateFlow<Int> = repository
         .getCountSince(startOfTodayMillis())
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     val todayStatsByType: StateFlow<List<TypeDayStat>> = combine(
-        _allActivities,
+        activities,
         prefs.allGoals
     ) { all, goals ->
         val todayStart      = startOfTodayMillis()
@@ -79,8 +64,6 @@ class ActivityViewModel(application: Application) : AndroidViewModel(application
             )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), defaultTodayStats())
-
-    fun setSearch(query: String) { _searchQuery.value = query }
 
     fun saveActivity(activity: Activity) {
         viewModelScope.launch {

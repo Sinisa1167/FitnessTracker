@@ -28,9 +28,6 @@ interface ActivityDao {
     @Query("SELECT * FROM activities WHERE timestamp >= :from AND timestamp <= :to ORDER BY timestamp DESC")
     fun getByDateRange(from: Long, to: Long): Flow<List<Activity>>
 
-    @Query("SELECT * FROM activities WHERE type LIKE :query OR description LIKE :query OR strftime('%d.%m.%Y', datetime(timestamp/1000, 'unixepoch')) LIKE :query ORDER BY timestamp DESC")
-    fun search(query: String): Flow<List<Activity>>
-
     @Query("SELECT SUM(distanceMeters) FROM activities WHERE timestamp >= :from")
     fun getTotalDistanceSince(from: Long): Flow<Float?>
 

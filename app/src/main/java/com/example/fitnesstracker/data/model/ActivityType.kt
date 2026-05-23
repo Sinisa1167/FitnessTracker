@@ -9,7 +9,7 @@ enum class ActivityType(val key: String) {
     OTHER("Ostalo");
 
     companion object {
-        fun fromKey(key: String) = ActivityType.entries.firstOrNull { it.key == key } ?: OTHER
-        val allKeys get() = ActivityType.entries.map { it.key }
+        fun fromKey(key: String) = entries.firstOrNull { it.key == key } ?: OTHER
+        val allKeys = entries.map { it.key }
     }
 }

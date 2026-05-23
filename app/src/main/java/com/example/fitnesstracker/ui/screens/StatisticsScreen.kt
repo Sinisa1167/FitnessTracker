@@ -585,7 +585,7 @@ fun getLastNDays(n: Int, locale: Locale = Locale.getDefault()): List<Triple<Long
         calendar.add(Calendar.DAY_OF_YEAR, -1)
     }
 
-    return result.reversed()
+    return result.asReversed()
 }
 
 fun formatDurationShort(seconds: Long): String {

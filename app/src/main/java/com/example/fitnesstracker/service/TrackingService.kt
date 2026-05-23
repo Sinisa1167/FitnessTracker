@@ -29,9 +29,10 @@ class TrackingService : LifecycleService() {
     private lateinit var locationCallback: LocationCallback
     private lateinit var locationHandlerThread: HandlerThread
     private var startTimeMillis = 0L
-    private val speedSamples = mutableListOf<Float>()
+    private var speedSampleCount = 0
+    private var speedSampleSum = 0f
     private var timerJob: Job? = null
-    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     companion object {
         val isTracking      = MutableLiveData(false)
@@ -74,7 +75,8 @@ class TrackingService : LifecycleService() {
         startForeground(1, buildNotification())
         isTracking.postValue(true)
         isPaused.postValue(false)
-        speedSamples.clear()
+        speedSampleCount = 0
+        speedSampleSum = 0f
         pathPoints.postValue(mutableListOf())
         distanceMeters.postValue(0f)
         elapsedSeconds.postValue(0L)
@@ -112,6 +114,7 @@ class TrackingService : LifecycleService() {
     private fun stopTracking() {
         timerJob?.cancel()
         serviceScope.cancel()
+        serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
         isTracking.postValue(false)
         isPaused.postValue(false)
         currentSpeedKmh.postValue(0f)
@@ -122,6 +125,8 @@ class TrackingService : LifecycleService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        timerJob?.cancel()
+        serviceScope.cancel()
         locationHandlerThread.quitSafely()
     }
 
@@ -140,9 +145,10 @@ class TrackingService : LifecycleService() {
 
         if (location.hasSpeed() && location.speed > 0.3f) {
             val kmh = location.speed * 3.6f
-            speedSamples.add(kmh)
+            speedSampleCount++
+            speedSampleSum += kmh
             currentSpeedKmh.postValue(kmh)
-            avgSpeedKmh.postValue(speedSamples.average().toFloat())
+            avgSpeedKmh.postValue(speedSampleSum / speedSampleCount)
         }
 
         points.add(location)

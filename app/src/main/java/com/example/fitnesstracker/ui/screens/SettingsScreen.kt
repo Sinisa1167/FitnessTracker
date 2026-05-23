@@ -79,20 +79,20 @@ fun SettingsScreen(viewModel: ActivityViewModel) {
     var selectedGoalType by remember { mutableStateOf(activityTypeKeys.first()) }
     val currentGoal      = allGoals[selectedGoalType]
 
-    val labelWeight  = key(lang) { stringResource(R.string.settings_profile_weight) }
-    val labelHeight  = key(lang) { stringResource(R.string.settings_profile_height) }
-    val labelAge     = key(lang) { stringResource(R.string.settings_profile_age) }
-    val labelAgeUnit = key(lang) { stringResource(R.string.settings_profile_age_unit) }
-    val labelSex     = key(lang) { stringResource(R.string.settings_profile_sex) }
-    val labelMale    = key(lang) { stringResource(R.string.settings_profile_male) }
-    val labelFemale  = key(lang) { stringResource(R.string.settings_profile_female) }
-    val labelSave    = key(lang) { stringResource(R.string.settings_profile_save) }
-    val labelSaved   = key(lang) { stringResource(R.string.settings_profile_save_success) }
-    val labelReset        = key(lang) { stringResource(R.string.settings_profile_reset) }
-    val dialogResetTitle  = key(lang) { stringResource(R.string.settings_reset_dialog_title) }
-    val dialogResetDesc   = key(lang) { stringResource(R.string.settings_reset_dialog_desc) }
-    val dialogResetConf   = key(lang) { stringResource(R.string.settings_reset_dialog_confirm) }
-    val dialogResetCanc   = key(lang) { stringResource(R.string.settings_reset_dialog_cancel) }
+    val labelWeight      = stringResource(R.string.settings_profile_weight)
+    val labelHeight      = stringResource(R.string.settings_profile_height)
+    val labelAge         = stringResource(R.string.settings_profile_age)
+    val labelAgeUnit     = stringResource(R.string.settings_profile_age_unit)
+    val labelSex         = stringResource(R.string.settings_profile_sex)
+    val labelMale        = stringResource(R.string.settings_profile_male)
+    val labelFemale      = stringResource(R.string.settings_profile_female)
+    val labelSave        = stringResource(R.string.settings_profile_save)
+    val labelSaved       = stringResource(R.string.settings_profile_save_success)
+    val labelReset       = stringResource(R.string.settings_profile_reset)
+    val dialogResetTitle = stringResource(R.string.settings_reset_dialog_title)
+    val dialogResetDesc  = stringResource(R.string.settings_reset_dialog_desc)
+    val dialogResetConf  = stringResource(R.string.settings_reset_dialog_confirm)
+    val dialogResetCanc  = stringResource(R.string.settings_reset_dialog_cancel)
 
     if (showResetDialog) {
         AlertDialog(

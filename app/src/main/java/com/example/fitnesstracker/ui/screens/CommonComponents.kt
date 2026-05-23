@@ -23,7 +23,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.fitnesstracker.R
 import com.example.fitnesstracker.data.model.Activity
-import com.example.fitnesstracker.ui.theme.detailColor
 import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -210,8 +209,8 @@ fun FilterSection(
     }
 }
 
-fun formatDate(timestamp: Long): String =
-    SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()).format(Date(timestamp))
+private val dateFormatter = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
+fun formatDate(timestamp: Long): String = dateFormatter.format(Date(timestamp))
 
 fun formatDuration(seconds: Long): String {
     val h = seconds / 3600

@@ -88,7 +88,6 @@ fun calculateMet(type: String, speedKmh: Float): Float = when (ActivityType.from
     ActivityType.SWIMMING -> 8.0f
     ActivityType.HIKING  -> 6.0f
     ActivityType.OTHER   -> 5.0f
-    else            -> 5.0f
 }
 class PreferencesManager(private val context: Context) {
 

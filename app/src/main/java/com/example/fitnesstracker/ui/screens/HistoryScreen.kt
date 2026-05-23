@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.fitnesstracker.R
+import com.example.fitnesstracker.data.model.Activity
 import com.example.fitnesstracker.ui.ActivityViewModel
 import java.text.SimpleDateFormat
 import java.util.*
@@ -38,7 +39,6 @@ import java.util.*
 @Composable
 fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
     val activities by viewModel.activities.collectAsState()
-    val searchResults by viewModel.searchResults.collectAsState()
     val units by viewModel.units.collectAsState()
     val useKm = units == "km"
     val unitLabel = if (useKm) "km" else "mi"
@@ -72,8 +72,9 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
     val shortDateFmt = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
 
     // Filter logic
-    val displayList = remember(searchQuery, searchResults, activities, filterType, minDistance, minDuration, dateFrom, dateTo, units) {
-        val baseList = if (searchQuery.isNotBlank()) searchResults else activities
+    val displayList = remember(searchQuery, activities, filterType, minDistance, minDuration, dateFrom, dateTo, units) {
+        val baseList = if (searchQuery.isBlank()) activities
+        else activities.filter { matchesSearch(it, searchQuery) }
         baseList.filter { activity ->
             val matchesType = filterType.isBlank() || activity.type == filterType
             val dist = if (useKm) activity.distanceMeters / 1000f else activity.distanceMeters / 1609f
@@ -229,7 +230,7 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
 
             // Active filter chips summary
             if (!isSelectionMode && hasActiveFilters) {
-                androidx.compose.foundation.lazy.LazyRow(
+                LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     if (filterType.isNotBlank()) {
@@ -281,12 +282,12 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
             if (!isSelectionMode) {
                 OutlinedTextField(
                     value = searchQuery,
-                    onValueChange = { searchQuery = it; viewModel.setSearch(it) },
+                    onValueChange = { searchQuery = it },
                     placeholder = { Text(stringResource(R.string.history_search_hint)) },
                     leadingIcon = { Icon(Icons.Default.Search, null) },
                     trailingIcon = if (searchQuery.isNotBlank()) {
                         {
-                            IconButton(onClick = { searchQuery = ""; viewModel.setSearch("") }) {
+                            IconButton(onClick = { searchQuery = "" }) {
                                 Icon(Icons.Default.Clear, null)
                             }
                         }
@@ -668,4 +669,14 @@ private fun ActiveFilterChip(label: String, onRemove: () -> Unit) {
             Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(14.dp))
         }
     )
+}
+
+private fun matchesSearch(activity: Activity, query: String): Boolean {
+    val q = query.trim().lowercase()
+    if (q.isBlank()) return true
+    val dateStr = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
+        .format(Date(activity.timestamp))
+    return activity.type.lowercase().contains(q) ||
+            activity.description.lowercase().contains(q) ||
+            dateStr.contains(q)
 }
