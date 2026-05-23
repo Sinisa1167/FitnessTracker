@@ -25,14 +25,15 @@ class BootReceiver : BroadcastReceiver() {
                 val notificationsOn = prefs.notificationsEnabled.first()
                 if (!notificationsOn) return@launch
 
+                val hours = prefs.reminderHours.first()
                 val lastActivity = prefs.getLastActivityTimestamp()
+
                 if (lastActivity == 0L) {
-                    ReminderWorker.scheduleFromNow(context)
+                    ReminderWorker.scheduleFromNow(context, hours)
                     return@launch
                 }
 
                 val startOfToday = DateUtils.startOfTodayMillis()
-
                 if (lastActivity >= startOfToday) return@launch
 
                 val elapsed = System.currentTimeMillis() - lastActivity
