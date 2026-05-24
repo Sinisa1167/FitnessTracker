@@ -1,21 +1,19 @@
 package com.example.fitnesstracker.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -28,10 +26,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.fitnesstracker.R
 import com.example.fitnesstracker.data.model.Activity
+import com.example.fitnesstracker.data.model.ActivityType
 import com.example.fitnesstracker.ui.ActivityViewModel
 import java.text.SimpleDateFormat
 import java.util.*
@@ -50,7 +51,6 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
     var showFilterSheet by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf<DatePickerTarget?>(null) }
 
-    // Filter state
     var filterType by remember { mutableStateOf("") }
     var minDistance by remember { mutableStateOf("") }
     var dateFrom by remember { mutableStateOf<Long?>(null) }
@@ -67,21 +67,23 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
         }
     }
 
-    val hasActiveFilters = filterType.isNotBlank() || minDistance.isNotBlank() || minDuration.isNotBlank() || dateFrom != null || dateTo != null
+    val hasActiveFilters = filterType.isNotBlank() || minDistance.isNotBlank() ||
+            minDuration.isNotBlank() || dateFrom != null || dateTo != null
     val isSelectionMode = selectedIds.isNotEmpty()
+
+    BackHandler(enabled = isSelectionMode) { selectedIds = emptySet() }
 
     val shortDateFmt = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
 
-    // Filter logic
-    val displayList = remember(searchQuery, activities, filterType, minDistance, minDuration, dateFrom, dateTo, units) {
-        val baseList = if (searchQuery.isBlank()) activities
+    val displayList = remember(activities, searchQuery, filterType, minDistance, minDuration, dateFrom, dateTo, useKm) {
+        val base = if (searchQuery.isBlank()) activities
         else activities.filter { matchesSearch(it, searchQuery) }
-        baseList.filter { activity ->
-            val matchesType = filterType.isBlank() || activity.type == filterType
+        base.filter { activity ->
             val dist = if (useKm) activity.distanceMeters / 1000f else activity.distanceMeters / 1609f
+            val endOfDay = dateTo?.let { it + 86_399_999L }
+            val matchesType = filterType.isBlank() || activity.type == filterType
             val matchesDistance = minDistance.toFloatOrNull()?.let { dist >= it } ?: true
             val matchesDuration = minDuration.toIntOrNull()?.let { activity.durationSeconds / 60 >= it } ?: true
-            val endOfDay = dateTo?.let { it + 86_399_999L }
             val matchesDate = when {
                 dateFrom != null && endOfDay != null -> activity.timestamp in dateFrom!!..endOfDay
                 dateFrom != null -> activity.timestamp >= dateFrom!!
@@ -93,51 +95,8 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
     }
 
     val listState = rememberLazyListState()
-
-    LaunchedEffect(displayList.size) {
-        if (displayList.isNotEmpty()) listState.animateScrollToItem(0)
-    }
-
     val allSelected = displayList.isNotEmpty() && selectedIds.containsAll(displayList.map { it.id })
 
-    // Date Picker Dialog
-    showDatePicker?.let { target ->
-        val initialMs = if (target == DatePickerTarget.FROM) dateFrom else dateTo
-        val state = rememberDatePickerState(
-            initialSelectedDateMillis = initialMs ?: System.currentTimeMillis(),
-            selectableDates = when (target) {
-                DatePickerTarget.FROM -> object : SelectableDates {
-                    override fun isSelectableDate(utcTimeMillis: Long) =
-                        dateTo == null || utcTimeMillis <= (dateTo!! + 86_399_999L)
-                }
-                DatePickerTarget.TO -> object : SelectableDates {
-                    override fun isSelectableDate(utcTimeMillis: Long) =
-                        dateFrom == null || utcTimeMillis >= dateFrom!!
-                }
-            }
-        )
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = null },
-            confirmButton = {
-                TextButton(onClick = {
-                    state.selectedDateMillis?.let { ms ->
-                        if (target == DatePickerTarget.FROM) dateFrom = ms
-                        else dateTo = ms
-                    }
-                    showDatePicker = null
-                }) { Text(stringResource(R.string.history_filter_apply)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = null }) {
-                    Text(stringResource(R.string.history_cancel))
-                }
-            }
-        ) {
-            DatePicker(state = state)
-        }
-    }
-
-    // Delete Dialog
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -161,9 +120,40 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
         )
     }
 
-    // Root Box
+    showDatePicker?.let { target ->
+        val initialMs = if (target == DatePickerTarget.FROM) dateFrom else dateTo
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = initialMs ?: System.currentTimeMillis(),
+            selectableDates = when (target) {
+                DatePickerTarget.FROM -> object : SelectableDates {
+                    override fun isSelectableDate(utcTimeMillis: Long) =
+                        dateTo == null || utcTimeMillis <= dateTo!! + 86_399_999L
+                }
+                DatePickerTarget.TO -> object : SelectableDates {
+                    override fun isSelectableDate(utcTimeMillis: Long) =
+                        dateFrom == null || utcTimeMillis >= dateFrom!!
+                }
+            }
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = null },
+            confirmButton = {
+                TextButton(onClick = {
+                    pickerState.selectedDateMillis?.let { ms ->
+                        if (target == DatePickerTarget.FROM) dateFrom = ms else dateTo = ms
+                    }
+                    showDatePicker = null
+                }) { Text(stringResource(R.string.history_filter_apply)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = null }) {
+                    Text(stringResource(R.string.history_cancel))
+                }
+            }
+        ) { DatePicker(state = pickerState) }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
-        // Main content
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -171,7 +161,6 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                 .padding(top = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Title / selection toolbar
             AnimatedContent(targetState = isSelectionMode, label = "toolbar") { selection ->
                 if (selection) {
                     Row(
@@ -190,7 +179,8 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                         }
                         Row {
                             TextButton(onClick = {
-                                selectedIds = if (allSelected) emptySet() else displayList.map { it.id }.toSet()
+                                selectedIds = if (allSelected) emptySet()
+                                else displayList.map { it.id }.toSet()
                             }) {
                                 Text(
                                     if (allSelected) stringResource(R.string.history_deselect_all)
@@ -216,7 +206,8 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (hasActiveFilters) {
                                 IconButton(onClick = {
-                                    filterType = ""; minDistance = ""; minDuration = ""; dateFrom = null; dateTo = null
+                                    filterType = ""; minDistance = ""; minDuration = ""
+                                    dateFrom = null; dateTo = null
                                 }) {
                                     Icon(Icons.Default.FilterListOff, null, tint = MaterialTheme.colorScheme.primary)
                                 }
@@ -227,65 +218,36 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                                     containerColor = if (hasActiveFilters)
                                         MaterialTheme.colorScheme.primaryContainer else Color.Transparent
                                 )
-                            ) {
-                                Icon(Icons.Default.FilterList, null)
-                            }
+                            ) { Icon(Icons.Default.FilterList, null) }
                         }
                     }
                 }
             }
 
-            // Active filter chips summary
             if (!isSelectionMode && hasActiveFilters) {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    if (filterType.isNotBlank()) {
-                        item {
-                            ActiveFilterChip(
-                                label = activityTypeDisplayName(filterType),
-                                onRemove = { filterType = "" }
-                            )
-                        }
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (filterType.isNotBlank()) item {
+                        ActiveFilterChip(activityTypeDisplayName(filterType)) { filterType = "" }
                     }
-                    if (minDistance.isNotBlank()) {
-                        item {
-                            ActiveFilterChip(
-                                label = "≥ $minDistance $unitLabel",
-                                onRemove = { minDistance = "" }
-                            )
-                        }
+                    if (minDistance.isNotBlank()) item {
+                        ActiveFilterChip("≥ $minDistance $unitLabel") { minDistance = "" }
                     }
-
-                    if (minDuration.isNotBlank()) {
-                        item {
-                            ActiveFilterChip(
-                                label = "≥ $minDuration min",
-                                onRemove = { minDuration = "" }
-                            )
-                        }
+                    if (minDuration.isNotBlank()) item {
+                        ActiveFilterChip("≥ $minDuration min") { minDuration = "" }
                     }
-
-                    if (dateFrom != null) {
-                        item {
-                            ActiveFilterChip(
-                                label = "${stringResource(R.string.history_filter_date_from)}: ${shortDateFmt.format(Date(dateFrom!!))}",
-                                onRemove = { dateFrom = null }
-                            )
+                    dateFrom?.let { item {
+                        ActiveFilterChip("${stringResource(R.string.history_filter_date_from)}: ${shortDateFmt.format(Date(it))}") {
+                            dateFrom = null
                         }
-                    }
-                    if (dateTo != null) {
-                        item {
-                            ActiveFilterChip(
-                                label = "${stringResource(R.string.history_filter_date_to)}: ${shortDateFmt.format(Date(dateTo!!))}",
-                                onRemove = { dateTo = null }
-                            )
+                    }}
+                    dateTo?.let { item {
+                        ActiveFilterChip("${stringResource(R.string.history_filter_date_to)}: ${shortDateFmt.format(Date(it))}") {
+                            dateTo = null
                         }
-                    }
+                    }}
                 }
             }
 
-            // Search bar
             if (!isSelectionMode) {
                 OutlinedTextField(
                     value = searchQuery,
@@ -293,11 +255,7 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                     placeholder = { Text(stringResource(R.string.history_search_hint)) },
                     leadingIcon = { Icon(Icons.Default.Search, null) },
                     trailingIcon = if (searchQuery.isNotBlank()) {
-                        {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Default.Clear, null)
-                            }
-                        }
+                        { IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Default.Clear, null) } }
                     } else null,
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth(),
@@ -311,7 +269,6 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                 )
             }
 
-            // List
             if (displayList.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
@@ -335,7 +292,8 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                             onLongClick = { if (!isSelectionMode) selectedIds = setOf(activity.id) },
                             onClick = {
                                 if (isSelectionMode) {
-                                    selectedIds = if (isSelected) selectedIds - activity.id else selectedIds + activity.id
+                                    selectedIds = if (isSelected) selectedIds - activity.id
+                                    else selectedIds + activity.id
                                 } else {
                                     navController.navigate("detail/${activity.id}")
                                 }
@@ -346,32 +304,14 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
             }
         }
 
-        // Filter sheet overlay
-        AnimatedVisibility(
-            visible = showFilterSheet,
-            modifier = Modifier.align(Alignment.BottomCenter),
-            enter = slideInVertically(
-                initialOffsetY = { it },
-                animationSpec = tween(320)
-            ) + fadeIn(tween(220)),
-            exit = slideOutVertically(
-                targetOffsetY = { it },
-                animationSpec = tween(260)
-            ) + fadeOut(tween(180))
-        ) {
-            // Scrim + sheet in a full-screen Box so the scrim covers everything
+        if (showFilterSheet) {
             Box(modifier = Modifier.fillMaxSize()) {
-                // Scrim
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(Color.Black.copy(alpha = 0.4f))
-                        .pointerInput(Unit) {
-                            detectTapGestures { showFilterSheet = false }
-                        }
+                        .pointerInput(Unit) { detectTapGestures { showFilterSheet = false } }
                 )
-
-                // Sheet surface anchored to bottom
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -383,23 +323,25 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                     shadowElevation = 8.dp
                 ) {
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        // Drag handle
                         Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 12.dp, bottom = 4.dp),
+                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .width(32.dp)
-                                    .height(4.dp)
+                                    .width(32.dp).height(4.dp)
                                     .clip(RoundedCornerShape(2.dp))
                                     .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
                             )
                         }
 
-                        // Scrollable filter content
+                        val todayStartMs = remember {
+                            Calendar.getInstance().apply {
+                                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                                set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+                            }.timeInMillis
+                        }
+
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -408,7 +350,6 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                                 .padding(top = 8.dp, bottom = 24.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            // Header
                             Row(
                                 Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -421,13 +362,10 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                                 )
                                 if (hasActiveFilters) {
                                     TextButton(onClick = {
-                                        filterType = ""; minDistance = ""; minDuration = ""; dateFrom = null; dateTo = null
+                                        filterType = ""; minDistance = ""; minDuration = ""
+                                        dateFrom = null; dateTo = null
                                     }) {
-                                        Icon(
-                                            Icons.Default.FilterListOff,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp)
-                                        )
+                                        Icon(Icons.Default.FilterListOff, null, modifier = Modifier.size(16.dp))
                                         Spacer(Modifier.width(4.dp))
                                         Text(stringResource(R.string.history_clear_filters))
                                     }
@@ -436,16 +374,12 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
 
                             Spacer(Modifier.height(8.dp))
 
-                            // Tip aktivnosti
-                            FilterSection(
-                                title = stringResource(R.string.history_filter_type),
-                                isActive = filterType.isNotBlank()
-                            ) {
+                            FilterSection(stringResource(R.string.history_filter_type), filterType.isNotBlank()) {
                                 LazyRow(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     modifier = Modifier.padding(vertical = 8.dp)
                                 ) {
-                                    val types = listOf("", "Trčanje", "Hodanje", "Biciklizam", "Plivanje", "Planinarenje", "Ostalo")
+                                    val types = listOf("") + ActivityType.allKeys
                                     items(types.size) { index ->
                                         val type = types[index]
                                         FilterChip(
@@ -453,7 +387,7 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                                             onClick = { filterType = type },
                                             label = {
                                                 Text(
-                                                    if (type == "") stringResource(R.string.history_filter_all)
+                                                    if (type.isEmpty()) stringResource(R.string.history_filter_all)
                                                     else activityTypeDisplayName(type)
                                                 )
                                             },
@@ -467,29 +401,16 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
 
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-                            // Minimalna distanca
-                            FilterSection(
-                                title = stringResource(R.string.history_filter_min_distance, unitLabel),
-                                isActive = minDistance.isNotBlank()
-                            ) {
+                            FilterSection(stringResource(R.string.history_filter_min_distance, unitLabel), minDistance.isNotBlank()) {
                                 OutlinedTextField(
                                     value = minDistance,
                                     onValueChange = { if (it.all { c -> c.isDigit() || c == '.' }) minDistance = it },
                                     placeholder = { Text(stringResource(R.string.history_filter_distance_hint)) },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                                     trailingIcon = if (minDistance.isNotBlank()) {
-                                        {
-                                            IconButton(onClick = { minDistance = "" }) {
-                                                Icon(Icons.Default.Clear, null)
-                                            }
-                                        }
+                                        { IconButton(onClick = { minDistance = "" }) { Icon(Icons.Default.Clear, null) } }
                                     } else null,
-                                    keyboardOptions = KeyboardOptions(
-                                        keyboardType = KeyboardType.Decimal,
-                                        imeAction = ImeAction.Done
-                                    ),
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
                                     keyboardActions = KeyboardActions(onDone = {}),
                                     singleLine = true
                                 )
@@ -497,30 +418,17 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
 
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-                            // Minimalno trajanje
-                            FilterSection(
-                                title = stringResource(R.string.history_filter_min_duration),
-                                isActive = minDuration.isNotBlank()
-                            ) {
+                            FilterSection(stringResource(R.string.history_filter_min_duration), minDuration.isNotBlank()) {
                                 OutlinedTextField(
                                     value = minDuration,
                                     onValueChange = { if (it.all { c -> c.isDigit() }) minDuration = it },
                                     placeholder = { Text(stringResource(R.string.history_filter_duration_hint)) },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                                     trailingIcon = if (minDuration.isNotBlank()) {
-                                        {
-                                            IconButton(onClick = { minDuration = "" }) {
-                                                Icon(Icons.Default.Clear, null)
-                                            }
-                                        }
+                                        { IconButton(onClick = { minDuration = "" }) { Icon(Icons.Default.Clear, null) } }
                                     } else null,
                                     suffix = { Text("min") },
-                                    keyboardOptions = KeyboardOptions(
-                                        keyboardType = KeyboardType.Number,
-                                        imeAction = ImeAction.Done
-                                    ),
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
                                     keyboardActions = KeyboardActions(onDone = {}),
                                     singleLine = true
                                 )
@@ -528,23 +436,11 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
 
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-                            // Vremenski period
-                            val todayStartMs = remember {
-                                Calendar.getInstance().apply {
-                                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
-                                    set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-                                }.timeInMillis
-                            }
-
-                            FilterSection(
-                                title = stringResource(R.string.history_filter_date_range),
-                                isActive = dateFrom != null || dateTo != null
-                            ) {
+                            FilterSection(stringResource(R.string.history_filter_date_range), dateFrom != null || dateTo != null) {
                                 Column(
                                     verticalArrangement = Arrangement.spacedBy(8.dp),
                                     modifier = Modifier.padding(vertical = 8.dp)
                                 ) {
-                                    // Quick presets
                                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         val presets = listOf(
                                             R.string.history_filter_date_today to 0,
@@ -566,12 +462,7 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                                             )
                                         }
                                     }
-
-                                    // Od / Do picker buttons
-                                    Row(
-                                        Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                    ) {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                         DateButton(
                                             modifier = Modifier.weight(1f),
                                             label = stringResource(R.string.history_filter_date_from),
@@ -591,11 +482,7 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                             }
 
                             Spacer(Modifier.height(8.dp))
-
-                            Button(
-                                onClick = { showFilterSheet = false },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
+                            Button(onClick = { showFilterSheet = false }, modifier = Modifier.fillMaxWidth()) {
                                 Text(stringResource(R.string.history_filter_apply))
                             }
                         }
@@ -603,14 +490,13 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                 }
             }
         }
+
         SnackbarHost(
             hostState = snackbarHostState,
-            modifier  = Modifier.align(Alignment.BottomCenter)
+            modifier = Modifier.align(Alignment.BottomCenter)
         )
     }
 }
-
-// ── Helpers ────────────────────────────────────────────────────────────────────
 
 private enum class DatePickerTarget { FROM, TO }
 
@@ -623,45 +509,26 @@ private fun DateButton(
     onClick: () -> Unit,
     onClear: () -> Unit
 ) {
-    OutlinedCard(
-        modifier = modifier,
-        onClick = onClick,
-        shape = RoundedCornerShape(12.dp)
-    ) {
+    OutlinedCard(modifier = modifier, onClick = onClick, shape = RoundedCornerShape(12.dp)) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
                     date ?: "—",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = if (date != null) FontWeight.SemiBold else FontWeight.Normal,
-                    color = if (date != null) MaterialTheme.colorScheme.onSurface
-                    else MaterialTheme.colorScheme.onSurfaceVariant
+                    color = if (date != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             if (date != null) {
                 IconButton(onClick = onClear, modifier = Modifier.size(24.dp)) {
-                    Icon(
-                        Icons.Default.Clear,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Icon(Icons.Default.Clear, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else {
-                Icon(
-                    Icons.Default.CalendarToday,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Icon(Icons.Default.CalendarToday, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -673,17 +540,14 @@ private fun ActiveFilterChip(label: String, onRemove: () -> Unit) {
         selected = true,
         onClick = onRemove,
         label = { Text(label, style = MaterialTheme.typography.labelMedium) },
-        trailingIcon = {
-            Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(14.dp))
-        }
+        trailingIcon = { Icon(Icons.Default.Close, null, modifier = Modifier.size(14.dp)) }
     )
 }
 
 private fun matchesSearch(activity: Activity, query: String): Boolean {
     val q = query.trim().lowercase()
     if (q.isBlank()) return true
-    val dateStr = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
-        .format(Date(activity.timestamp))
+    val dateStr = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(Date(activity.timestamp))
     return activity.type.lowercase().contains(q) ||
             activity.description.lowercase().contains(q) ||
             dateStr.contains(q)

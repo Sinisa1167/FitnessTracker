@@ -5,11 +5,15 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -26,11 +30,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.Locale
-
+import androidx.compose.foundation.layout.Box
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 val LocalAppLang = compositionLocalOf { "sr" }
 
 class MainActivity : ComponentActivity() {
-
     private val pendingNavRoute = MutableStateFlow<String?>(null)
 
     override fun onNewIntent(intent: Intent) {
@@ -71,7 +76,6 @@ class MainActivity : ComponentActivity() {
                         val navBackStackEntry by navController.currentBackStackEntryAsState()
                         val currentDestination = navBackStackEntry?.destination
 
-                        // Kolekcija pending rute — radi i za cold start i za onNewIntent
                         val routeToNavigate by pendingNavRoute.collectAsState()
                         LaunchedEffect(routeToNavigate) {
                             routeToNavigate?.let { route ->
@@ -82,44 +86,93 @@ class MainActivity : ComponentActivity() {
 
                         val navLabels = remember(currentLang) {
                             if (currentLang == "en")
-                                listOf("Home", "Training", "History", "Statistics", "Settings")
+                                listOf("Home", "Statistics", "History", "Settings")
                             else
-                                listOf("Početna", "Trening", "Istorija", "Statistike", "Podešavanja")
+                                listOf("Početna", "Statistika", "Istorija", "Podešavanja")
                         }
 
-                        val bottomNavRoutes = listOf(
-                            Triple("dashboard",  Icons.Default.Home,     navLabels[0]),
-                            Triple("tracking",   Icons.Default.Add,      navLabels[1]),
-                            Triple("history",    Icons.Default.History,  navLabels[2]),
-                            Triple("statistics", Icons.Default.BarChart, navLabels[3]),
-                            Triple("settings",   Icons.Default.Settings, navLabels[4])
-                        )
-
                         val showBottomBar = currentDestination?.route != "detail/{activityId}"
+                        val isTrackingActive = currentDestination?.hierarchy?.any { it.route == "tracking" } == true
 
                         Scaffold(
                             bottomBar = {
                                 if (showBottomBar) {
-                                    NavigationBar {
-                                        bottomNavRoutes.forEach { (route, icon, label) ->
+                                    Box {
+                                        NavigationBar {
                                             NavigationBarItem(
-                                                icon     = { Icon(icon, contentDescription = label) },
-                                                label    = {
-                                                    Text(
-                                                        text     = label,
-                                                        style    = MaterialTheme.typography.labelSmall,
-                                                        maxLines = 1,
-                                                        softWrap = false
-                                                    )
-                                                },
-                                                selected = currentDestination?.hierarchy?.any { it.route == route } == true,
+                                                icon     = { Icon(Icons.Default.Home, null) },
+                                                label    = { Text(navLabels[0], style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) },
+                                                selected = currentDestination?.hierarchy?.any { it.route == "dashboard" } == true,
                                                 onClick  = {
-                                                    navController.navigate(route) {
+                                                    navController.navigate("dashboard") {
                                                         popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                                                         launchSingleTop = true
                                                         restoreState    = true
                                                     }
                                                 }
+                                            )
+                                            NavigationBarItem(
+                                                icon     = { Icon(Icons.Default.BarChart, null) },
+                                                label    = { Text(navLabels[1], style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) },
+                                                selected = currentDestination?.hierarchy?.any { it.route == "statistics" } == true,
+                                                onClick  = {
+                                                    navController.navigate("statistics") {
+                                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                                        launchSingleTop = true
+                                                        restoreState    = true
+                                                    }
+                                                }
+                                            )
+                                            NavigationBarItem(
+                                                icon = {}, label = {}, selected = false, onClick = {}, enabled = false
+                                            )
+                                            NavigationBarItem(
+                                                icon     = { Icon(Icons.Default.History, null) },
+                                                label    = { Text(navLabels[2], style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) },
+                                                selected = currentDestination?.hierarchy?.any { it.route == "history" } == true,
+                                                onClick  = {
+                                                    navController.navigate("history") {
+                                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                                        launchSingleTop = true
+                                                        restoreState    = true
+                                                    }
+                                                }
+                                            )
+                                            NavigationBarItem(
+                                                icon     = { Icon(Icons.Default.Settings, null) },
+                                                label    = { Text(navLabels[3], style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) },
+                                                selected = currentDestination?.hierarchy?.any { it.route == "settings" } == true,
+                                                onClick  = {
+                                                    navController.navigate("settings") {
+                                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                                        launchSingleTop = true
+                                                        restoreState    = true
+                                                    }
+                                                }
+                                            )
+                                        }
+
+                                        FloatingActionButton(
+                                            onClick = {
+                                                navController.navigate("tracking") {
+                                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                                    launchSingleTop = true
+                                                    restoreState    = true
+                                                }
+                                            },
+                                            modifier       = Modifier
+                                                .align(Alignment.Center).size(60.dp),
+                                            containerColor = if (isTrackingActive) MaterialTheme.colorScheme.primary
+                                            else MaterialTheme.colorScheme.primaryContainer,
+                                            contentColor   = if (isTrackingActive) MaterialTheme.colorScheme.onPrimary
+                                            else MaterialTheme.colorScheme.onPrimaryContainer,
+                                            shape          = CircleShape,
+                                            elevation      = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector        = Icons.Default.PlayArrow,
+                                                contentDescription = "Trening",
+                                                modifier           = Modifier.size(34.dp)
                                             )
                                         }
                                     }
@@ -129,7 +182,9 @@ class MainActivity : ComponentActivity() {
                             NavHost(
                                 navController    = navController,
                                 startDestination = "dashboard",
-                                modifier         = Modifier.padding(innerPadding)
+                                modifier         = Modifier.padding(innerPadding),
+                                enterTransition  = { EnterTransition.None },
+                                exitTransition   = { ExitTransition.None }
                             ) {
                                 composable("dashboard")  { DashboardScreen(viewModel, navController) }
                                 composable("tracking")   { TrackingScreen(viewModel, navController) }

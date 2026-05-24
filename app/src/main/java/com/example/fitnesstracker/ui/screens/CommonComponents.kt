@@ -34,14 +34,13 @@ import com.example.fitnesstracker.data.model.ActivityType
 
 
 @Composable
-fun activityTypeDisplayName(type: String): String = when (type) {
-    "Trčanje"    -> stringResource(R.string.type_running)
-    "Hodanje"    -> stringResource(R.string.type_walking)
-    "Biciklizam" -> stringResource(R.string.type_cycling)
-    "Plivanje"   -> stringResource(R.string.type_swimming)
-    "Planinarenje" -> stringResource(R.string.type_hiking)
-    "Ostalo"     -> stringResource(R.string.type_other)
-    else         -> type
+fun activityTypeDisplayName(type: String): String = when (ActivityType.fromKey(type)) {
+    ActivityType.RUNNING  -> stringResource(R.string.type_running)
+    ActivityType.WALKING  -> stringResource(R.string.type_walking)
+    ActivityType.CYCLING  -> stringResource(R.string.type_cycling)
+    ActivityType.SWIMMING -> stringResource(R.string.type_swimming)
+    ActivityType.HIKING   -> stringResource(R.string.type_hiking)
+    ActivityType.OTHER    -> stringResource(R.string.type_other)
 }
 
 fun activityIcon(type: String) = when (ActivityType.fromKey(type)) {
