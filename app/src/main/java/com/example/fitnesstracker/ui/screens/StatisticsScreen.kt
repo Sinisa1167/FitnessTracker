@@ -475,6 +475,7 @@ fun TypeRow(
     totalSeconds: Long,
     useKm: Boolean
 ) {
+    val avgSpeedLabel = stringResource(R.string.stats_avg_speed)
     Row(
         modifier              = Modifier.fillMaxWidth(),
         verticalAlignment     = Alignment.CenterVertically,
@@ -514,7 +515,7 @@ fun TypeRow(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            formatSpeed(avgSpeed, useKm),
+                            "$avgSpeedLabel ${formatSpeed(avgSpeed, useKm)}",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

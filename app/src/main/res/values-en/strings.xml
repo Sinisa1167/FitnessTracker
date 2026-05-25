@@ -106,6 +106,7 @@
     <string name="stats_total_calories">Calories</string>
     <string name="stats_last30days">Distance (last 30 days)</string>
     <string name="stats_last90days">Distance (last 90 days)</string>
+    <string name="stats_avg_speed">avg.</string>
 
     <!-- Activity Detail Screen -->
     <string name="detail_map_unavailable">Map not available for this activity</string>

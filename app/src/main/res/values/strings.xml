@@ -168,5 +168,7 @@
     <string name="error_save_activity">Error saving activity</string>
     <string name="error_delete_activity">Error deleting activity</string>
     <string name="error_update_description">Error updating description</string>
+    <string name="stats_avg_speed">avg.</string>
+
 
 </resources>

@@ -105,6 +105,7 @@
     <string name="stats_total_calories">Kalorije</string>
     <string name="stats_last30days">Udaljenost (zadnjih 30 dana)</string>
     <string name="stats_last90days">Udaljenost (zadnjih 90 dana)</string>
+    <string name="stats_avg_speed">prosj.</string>
 
     <!-- Activity Detail Screen -->
     <string name="detail_map_unavailable">Mapa nije dostupna za ovu aktivnost</string>

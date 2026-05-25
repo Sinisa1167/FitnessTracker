@@ -31,6 +31,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(viewModel: ActivityViewModel) {
+    val lang = LocalAppLang.current
     val context = LocalContext.current
     val prefs   = remember { PreferencesManager(context) }
     val scope   = rememberCoroutineScope()
@@ -41,10 +42,8 @@ fun SettingsScreen(viewModel: ActivityViewModel) {
     val units                by prefs.units.collectAsState(initial = "km")
     val notificationsEnabled by prefs.notificationsEnabled.collectAsState(initial = true)
     val reminderHours        by prefs.reminderHours.collectAsState(initial = 48)
-    val userProfile          by prefs.userProfile.collectAsState(initial = null)
+    val profile              by prefs.userProfile.collectAsState(initial = UserProfile())
     val allGoals by viewModel.allGoals.collectAsState()
-
-    val profile = userProfile ?: return
 
     fun formatInitialValue(value: Float): String = if (value > 0f) value.toString().replace(".0", "") else ""
     fun formatInitialValue(value: Int): String = if (value > 0) value.toString() else ""

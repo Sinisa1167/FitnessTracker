@@ -24,6 +24,7 @@ import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.example.fitnesstracker.R
 import com.example.fitnesstracker.data.calculateCalories
+import com.example.fitnesstracker.data.model.ActivityType
 import com.example.fitnesstracker.ui.ActivityViewModel
 import com.example.fitnesstracker.util.navigateMain
 
@@ -40,7 +41,15 @@ fun DashboardScreen(
 
     val useKm = units == "km"
 
-    var selectedType by remember { mutableStateOf("Trčanje") }
+    var selectedType by remember(statsByType) {
+        mutableStateOf(
+            statsByType.maxByOrNull { it.distanceMeters + it.durationSeconds }
+                ?.takeIf { it.distanceMeters > 0f || it.durationSeconds > 0L }
+                ?.type
+                ?: ActivityType.RUNNING.key
+        )
+    }
+
     val selectedStat = statsByType.find { it.type == selectedType }
 
     val goalDistanceInUnits = selectedStat?.goal?.distanceKm?.let {

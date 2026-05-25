@@ -32,7 +32,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.example.fitnesstracker.data.model.ActivityType
 
-
 @Composable
 fun activityTypeDisplayName(type: String): String = when (ActivityType.fromKey(type)) {
     ActivityType.RUNNING  -> stringResource(R.string.type_running)

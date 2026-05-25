@@ -22,8 +22,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -46,6 +49,7 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
     val unitLabel = if (useKm) "km" else "mi"
 
     var searchQuery by remember { mutableStateOf("") }
+    var isSearchActive by remember { mutableStateOf(false) }
     var selectedIds by remember { mutableStateOf(emptySet<Long>()) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showFilterSheet by remember { mutableStateOf(false) }
@@ -59,6 +63,8 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
 
     val snackbarHostState = remember { SnackbarHostState() }
     val error by viewModel.error.collectAsState()
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     error?.let { message ->
         LaunchedEffect(message) {
@@ -72,12 +78,22 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
     val isSelectionMode = selectedIds.isNotEmpty()
 
     BackHandler(enabled = isSelectionMode) { selectedIds = emptySet() }
+    BackHandler(enabled = isSearchActive && !isSelectionMode) {
+        isSearchActive = false
+        searchQuery = ""
+        keyboardController?.hide()
+    }
+    BackHandler(enabled = showFilterSheet) {
+        showFilterSheet = false
+    }
 
     val shortDateFmt = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
 
+    val localizedTypeNames = ActivityType.allKeys.associateWith { activityTypeDisplayName(it) }
+
     val displayList = remember(activities, searchQuery, filterType, minDistance, minDuration, dateFrom, dateTo, useKm) {
         val base = if (searchQuery.isBlank()) activities
-        else activities.filter { matchesSearch(it, searchQuery) }
+        else activities.filter { matchesSearch(it, searchQuery, localizedTypeNames) }
         base.filter { activity ->
             val dist = if (useKm) activity.distanceMeters / 1000f else activity.distanceMeters / 1609f
             val endOfDay = dateTo?.let { it + 86_399_999L }
@@ -158,15 +174,14 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp)
-                .padding(top = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(top = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             AnimatedContent(targetState = isSelectionMode, label = "toolbar") { selection ->
                 if (selection) {
                     Row(
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             IconButton(onClick = { selectedIds = emptySet() }) {
@@ -193,38 +208,75 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                         }
                     }
                 } else {
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            stringResource(R.string.history_title),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (hasActiveFilters) {
-                                IconButton(onClick = {
-                                    filterType = ""; minDistance = ""; minDuration = ""
-                                    dateFrom = null; dateTo = null
-                                }) {
-                                    Icon(Icons.Default.FilterListOff, null, tint = MaterialTheme.colorScheme.primary)
+                    AnimatedContent(targetState = isSearchActive, label = "search") { searching ->
+                        if (searching) {
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                placeholder = { Text(stringResource(R.string.history_search_hint)) },
+                                leadingIcon = { Icon(Icons.Default.Search, null) },
+                                trailingIcon = {
+                                    IconButton(onClick = {
+                                        isSearchActive = false
+                                        searchQuery = ""
+                                        keyboardController?.hide()
+                                    }) { Icon(Icons.Default.Close, null) }
+                                },
+                                shape = RoundedCornerShape(16.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .focusRequester(focusRequester),
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                    focusedIndicatorColor = Color.Transparent,
+                                    unfocusedIndicatorColor = Color.Transparent,
+                                ),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                keyboardActions = KeyboardActions(onSearch = { keyboardController?.hide() })
+                            )
+                            LaunchedEffect(Unit) {
+                                focusRequester.requestFocus()
+                            }
+                        } else {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    stringResource(R.string.history_title),
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (hasActiveFilters) {
+                                        IconButton(onClick = {
+                                            filterType = ""; minDistance = ""; minDuration = ""
+                                            dateFrom = null; dateTo = null
+                                        }) {
+                                            Icon(Icons.Default.FilterListOff, null, tint = MaterialTheme.colorScheme.primary)
+                                        }
+                                    }
+                                    IconButton(onClick = { isSearchActive = true }) {
+                                        Icon(Icons.Default.Search, null)
+                                    }
+                                    IconButton(
+                                        onClick = { showFilterSheet = true },
+                                        colors = IconButtonDefaults.iconButtonColors(
+                                            containerColor = if (hasActiveFilters)
+                                                MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+                                        )
+                                    ) { Icon(Icons.Default.FilterList, null) }
                                 }
                             }
-                            IconButton(
-                                onClick = { showFilterSheet = true },
-                                colors = IconButtonDefaults.iconButtonColors(
-                                    containerColor = if (hasActiveFilters)
-                                        MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-                                )
-                            ) { Icon(Icons.Default.FilterList, null) }
                         }
                     }
                 }
             }
 
-            if (!isSelectionMode && hasActiveFilters) {
+            if (!isSelectionMode && !isSearchActive && hasActiveFilters) {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (filterType.isNotBlank()) item {
                         ActiveFilterChip(activityTypeDisplayName(filterType)) { filterType = "" }
@@ -235,38 +287,21 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
                     if (minDuration.isNotBlank()) item {
                         ActiveFilterChip("≥ $minDuration min") { minDuration = "" }
                     }
-                    dateFrom?.let { item {
-                        ActiveFilterChip("${stringResource(R.string.history_filter_date_from)}: ${shortDateFmt.format(Date(it))}") {
-                            dateFrom = null
+                    dateFrom?.let {
+                        item {
+                            ActiveFilterChip("${stringResource(R.string.history_filter_date_from)}: ${shortDateFmt.format(Date(it))}") {
+                                dateFrom = null
+                            }
                         }
-                    }}
-                    dateTo?.let { item {
-                        ActiveFilterChip("${stringResource(R.string.history_filter_date_to)}: ${shortDateFmt.format(Date(it))}") {
-                            dateTo = null
+                    }
+                    dateTo?.let {
+                        item {
+                            ActiveFilterChip("${stringResource(R.string.history_filter_date_to)}: ${shortDateFmt.format(Date(it))}") {
+                                dateTo = null
+                            }
                         }
-                    }}
+                    }
                 }
-            }
-
-            if (!isSelectionMode) {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = { Text(stringResource(R.string.history_search_hint)) },
-                    leadingIcon = { Icon(Icons.Default.Search, null) },
-                    trailingIcon = if (searchQuery.isNotBlank()) {
-                        { IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Default.Clear, null) } }
-                    } else null,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                        disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                    )
-                )
             }
 
             if (displayList.isEmpty()) {
@@ -544,11 +579,17 @@ private fun ActiveFilterChip(label: String, onRemove: () -> Unit) {
     )
 }
 
-private fun matchesSearch(activity: Activity, query: String): Boolean {
+private fun matchesSearch(
+    activity: Activity,
+    query: String,
+    localizedTypeNames: Map<String, String>
+): Boolean {
     val q = query.trim().lowercase()
     if (q.isBlank()) return true
     val dateStr = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(Date(activity.timestamp))
+    val localizedName = localizedTypeNames[activity.type]?.lowercase() ?: ""
     return activity.type.lowercase().contains(q) ||
+            localizedName.contains(q) ||
             activity.description.lowercase().contains(q) ||
             dateStr.contains(q)
 }

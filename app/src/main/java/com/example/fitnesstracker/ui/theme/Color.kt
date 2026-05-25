@@ -1,10 +1,6 @@
 package com.example.fitnesstracker.ui.theme
 
 import androidx.compose.ui.graphics.Color
-
-
-val detailColor = Color(0xFF2196F3)
-
 // Light theme
 val Primary = Color(0xFF0277BD)
 val PrimaryContainer = Color(0xFFBBDEFB)
@@ -54,5 +50,5 @@ val OnBackgroundDark = Color(0xFFDFE3E8)
 val OnSurfaceDark = Color(0xFFDFE3E8)
 val OnSurfaceVariantDark = Color(0xFFB0C4D8)
 
-val ErrorDark = Color(0xFFFFB4AB)
+val ErrorDark = Color(0xFFf12630)
 val OnErrorDark = Color(0xFF690005)
