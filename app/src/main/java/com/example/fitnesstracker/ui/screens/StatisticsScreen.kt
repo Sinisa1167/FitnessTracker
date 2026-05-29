@@ -369,6 +369,13 @@ fun StatisticsScreen(viewModel: ActivityViewModel) {
                                                     style = MaterialTheme.typography.labelSmall,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
+                                                if (activity.caloriesBurned > 0) {
+                                                    Text(
+                                                        "${activity.caloriesBurned} kcal",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                }
                                             }
                                         }
                                     }

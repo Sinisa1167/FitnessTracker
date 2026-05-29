@@ -22,6 +22,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancel
+private const val MIN_DISTANCE_METERS = 3f
 
 class TrackingService : LifecycleService() {
 
@@ -41,7 +42,7 @@ class TrackingService : LifecycleService() {
         val distanceMeters  = MutableLiveData(0f)
         val elapsedSeconds  = MutableLiveData(0L)
         val currentSpeedKmh = MutableLiveData(0f)
-        val avgSpeedKmh = MutableLiveData(0f)
+        val avgSpeedKmh     = MutableLiveData(0f)
 
         const val ACTION_START      = "ACTION_START"
         const val ACTION_STOP       = "ACTION_STOP"
@@ -80,6 +81,8 @@ class TrackingService : LifecycleService() {
         pathPoints.postValue(mutableListOf())
         distanceMeters.postValue(0f)
         elapsedSeconds.postValue(0L)
+        currentSpeedKmh.postValue(0f)
+        avgSpeedKmh.postValue(0f)
 
         startTimeMillis = System.currentTimeMillis()
         startTimer()
@@ -106,7 +109,7 @@ class TrackingService : LifecycleService() {
     private fun resumeTracking() {
         isPaused.postValue(false)
         val pausedSeconds = elapsedSeconds.value ?: 0L
-        startTimeMillis   = System.currentTimeMillis() - (pausedSeconds * 1000L)
+        startTimeMillis = System.currentTimeMillis() - (pausedSeconds * 1000L)
         startTimer()
         requestLocationUpdates()
     }
@@ -131,7 +134,10 @@ class TrackingService : LifecycleService() {
     }
 
     private fun addPathPoint(location: Location) {
-        val points = (pathPoints.value ?: emptyList()).toMutableList()
+        if (location.hasAccuracy() && location.accuracy > 50f) return
+
+        val points = (pathPoints.value ?: mutableListOf()).toMutableList()
+
         if (points.isNotEmpty()) {
             val last = points.last()
             val result = FloatArray(1)
@@ -140,7 +146,10 @@ class TrackingService : LifecycleService() {
                 location.latitude, location.longitude,
                 result
             )
-            distanceMeters.postValue((distanceMeters.value ?: 0f) + result[0])
+            val delta = result[0]
+            if (delta >= MIN_DISTANCE_METERS) {
+                distanceMeters.postValue((distanceMeters.value ?: 0f) + delta)
+            }
         }
 
         if (location.hasSpeed() && location.speed > 0.3f) {
@@ -169,8 +178,9 @@ class TrackingService : LifecycleService() {
         val priority = if (hasFine) Priority.PRIORITY_HIGH_ACCURACY
         else         Priority.PRIORITY_BALANCED_POWER_ACCURACY
 
-        val request = LocationRequest.Builder(priority, 2000L)
-            .setMinUpdateIntervalMillis(1000L)
+        val request = LocationRequest.Builder(priority, 1000L)
+            .setMinUpdateIntervalMillis(500L)
+            .setMaxUpdateDelayMillis(1000L)
             .build()
 
         try {
