@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import com.example.fitnesstracker.util.responsiveMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -123,7 +124,10 @@ fun SettingsScreen(viewModel: ActivityViewModel) {
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .align(Alignment.TopCenter)
+                .fillMaxHeight()
+                .responsiveMaxWidth()
+                .fillMaxWidth()
                 .statusBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)

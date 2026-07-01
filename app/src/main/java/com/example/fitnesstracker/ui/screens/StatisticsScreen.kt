@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import com.example.fitnesstracker.util.responsiveMaxWidth
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -91,252 +92,257 @@ fun StatisticsScreen(viewModel: ActivityViewModel) {
     }
     val labelEvery = when (selectedPeriod) {
         StatsPeriod.WEEK         -> 1
-        StatsPeriod.MONTH        -> 5
+        StatsPeriod.MONTH        -> 3
         StatsPeriod.THREE_MONTHS -> 1
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .statusBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
-    ) {
-        Text(
-            text       = stringResource(R.string.stats_title),
-            style      = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.ExtraBold,
-            color      = MaterialTheme.colorScheme.onSurface
-        )
-
-        // Period switcher
-        Row(
-            modifier              = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxHeight()
+                .responsiveMaxWidth()
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            StatsPeriod.entries.forEach { period ->
-                FilterChip(
-                    selected = selectedPeriod == period,
-                    onClick  = { selectedPeriod = period },
-                    label    = {
-                        Text(
-                            periodLabel(period, lang),
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-
-        // Summary kartica
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape    = RoundedCornerShape(28.dp),
-            colors   = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
+            Text(
+                text       = stringResource(R.string.stats_title),
+                style      = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color      = MaterialTheme.colorScheme.onSurface
             )
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(20.dp)
-                    .fillMaxWidth()
+
+            // Period switcher
+            Row(
+                modifier              = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Row(
-                    modifier              = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment     = Alignment.CenterVertically
-                ) {
-                    StatDetailItem(
-                        label = stringResource(R.string.stats_activities),
-                        value = filteredActivities.size.toString(),
-                        icon  = Icons.Default.History
-                    )
-                    Box(
-                        modifier = Modifier
-                            .width(1.dp)
-                            .height(40.dp)
-                            .background(MaterialTheme.colorScheme.outlineVariant)
-                    )
-                    StatDetailItem(
-                        label = stringResource(R.string.stats_total, unitLabel),
-                        value = "%.1f".format(totalDistance),
-                        icon  = Icons.Default.Route
-                    )
-                    Box(
-                        modifier = Modifier
-                            .width(1.dp)
-                            .height(40.dp)
-                            .background(MaterialTheme.colorScheme.outlineVariant)
-                    )
-                    StatDetailItem(
-                        label = stringResource(R.string.stats_total_duration),
-                        value = formatDurationShort(totalDurationSeconds),
-                        icon  = Icons.Default.Timer
+                StatsPeriod.entries.forEach { period ->
+                    FilterChip(
+                        selected = selectedPeriod == period,
+                        onClick  = { selectedPeriod = period },
+                        label    = {
+                            Text(
+                                periodLabel(period, lang),
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        },
+                        modifier = Modifier.weight(1f)
                     )
                 }
+            }
 
-                if (totalCalories > 0) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        color    = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                    )
+            // Summary kartica
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape    = RoundedCornerShape(28.dp),
+                colors   = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(20.dp)
+                        .fillMaxWidth()
+                ) {
                     Row(
                         modifier              = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment     = Alignment.CenterVertically
                     ) {
                         StatDetailItem(
-                            label = stringResource(R.string.stats_total_calories),
-                            value = "$totalCalories kcal",
-                            icon  = Icons.Default.Whatshot
+                            label = stringResource(R.string.stats_activities),
+                            value = filteredActivities.size.toString(),
+                            icon  = Icons.Default.History
                         )
+                        Box(
+                            modifier = Modifier
+                                .width(1.dp)
+                                .height(40.dp)
+                                .background(MaterialTheme.colorScheme.outlineVariant)
+                        )
+                        StatDetailItem(
+                            label = stringResource(R.string.stats_total, unitLabel),
+                            value = "%.1f".format(totalDistance),
+                            icon  = Icons.Default.Route
+                        )
+                        Box(
+                            modifier = Modifier
+                                .width(1.dp)
+                                .height(40.dp)
+                                .background(MaterialTheme.colorScheme.outlineVariant)
+                        )
+                        StatDetailItem(
+                            label = stringResource(R.string.stats_total_duration),
+                            value = formatDurationShort(totalDurationSeconds),
+                            icon  = Icons.Default.Timer
+                        )
+                    }
+
+                    if (totalCalories > 0) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            color    = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        )
+                        Row(
+                            modifier              = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            StatDetailItem(
+                                label = stringResource(R.string.stats_total_calories),
+                                value = "$totalCalories kcal",
+                                icon  = Icons.Default.Whatshot
+                            )
+                        }
                     }
                 }
             }
-        }
 
-        // Grafikon naslov
-        Row(
-            modifier              = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment     = Alignment.CenterVertically
-        ) {
-            StatSectionTitle(
-                when (selectedPeriod) {
-                    StatsPeriod.WEEK         -> stringResource(R.string.stats_last7days)
-                    StatsPeriod.MONTH        -> stringResource(R.string.stats_last30days)
-                    StatsPeriod.THREE_MONTHS -> stringResource(R.string.stats_last90days)
-                }
-            )
-            if (isAggregated) {
-                Text(
-                    if (lang == "sr") "po sedmicama" else "by week",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-
-        if (filteredActivities.isEmpty()) {
-            EmptyChart()
-        } else {
-            Card(
-                modifier  = Modifier.fillMaxWidth(),
-                shape     = RoundedCornerShape(24.dp),
-                colors    = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            // Grafikon naslov
+            Row(
+                modifier              = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment     = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    DistanceBarChart(
-                        buckets       = buckets,
-                        divisor       = divisor,
-                        barWidth      = barWidth,
-                        barSpacing    = barSpacing,
-                        labelEvery    = labelEvery,
-                        selectedIndex = selectedIndex,
-                        onSelect      = { idx -> selectedIndex = if (selectedIndex == idx) null else idx },
-                        barColor      = primaryColor
+                StatSectionTitle(
+                    when (selectedPeriod) {
+                        StatsPeriod.WEEK         -> stringResource(R.string.stats_last7days)
+                        StatsPeriod.MONTH        -> stringResource(R.string.stats_last30days)
+                        StatsPeriod.THREE_MONTHS -> stringResource(R.string.stats_last90days)
+                    }
+                )
+                if (isAggregated) {
+                    Text(
+                        if (lang == "sr") "po sedmicama" else "by week",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+            }
 
-                    // Detalji (dan ili sedmica)
-                    if (selectedBucket != null) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape    = RoundedCornerShape(16.dp),
-                            colors   = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                            )
-                        ) {
-                            Column(
-                                modifier            = Modifier.padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+            if (filteredActivities.isEmpty()) {
+                EmptyChart()
+            } else {
+                Card(
+                    modifier  = Modifier.fillMaxWidth(),
+                    shape     = RoundedCornerShape(24.dp),
+                    colors    = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        DistanceBarChart(
+                            buckets       = buckets,
+                            divisor       = divisor,
+                            barWidth      = barWidth,
+                            barSpacing    = barSpacing,
+                            labelEvery    = labelEvery,
+                            selectedIndex = selectedIndex,
+                            onSelect      = { idx -> selectedIndex = if (selectedIndex == idx) null else idx },
+                            barColor      = primaryColor
+                        )
+
+                        // Detalji (dan ili sedmica)
+                        if (selectedBucket != null) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape    = RoundedCornerShape(16.dp),
+                                colors   = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                                )
                             ) {
-                                Row(
-                                    modifier              = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment     = Alignment.CenterVertically
+                                Column(
+                                    modifier            = Modifier.padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Text(
-                                        if (isAggregated)
-                                            (if (lang == "sr") "Sedmica od ${selectedBucket.label}" else "Week of ${selectedBucket.label}")
-                                        else selectedBucket.label,
-                                        style      = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        "%.2f $unitLabel".format(selectedBucket.distanceMeters / divisor),
-                                        style      = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color      = MaterialTheme.colorScheme.primary
-                                    )
-                                }
+                                    Row(
+                                        modifier              = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment     = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            if (isAggregated)
+                                                (if (lang == "sr") "Sedmica od ${selectedBucket.label}" else "Week of ${selectedBucket.label}")
+                                            else selectedBucket.label,
+                                            style      = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            "%.2f $unitLabel".format(selectedBucket.distanceMeters / divisor),
+                                            style      = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color      = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
 
-                                if (selectedBucket.activities.isEmpty()) {
-                                    Text(
-                                        stringResource(R.string.stats_no_activities),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                } else {
-                                    HorizontalDivider(
-                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                                    )
-                                    selectedBucket.activities.forEach { activity ->
-                                        Row(
-                                            modifier              = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                            verticalAlignment     = Alignment.CenterVertically
-                                        ) {
-                                            Box(
-                                                modifier         = Modifier
-                                                    .size(32.dp)
-                                                    .background(
-                                                        getActivityColor(activity.type).copy(alpha = 0.1f),
-                                                        CircleShape
-                                                    ),
-                                                contentAlignment = Alignment.Center
+                                    if (selectedBucket.activities.isEmpty()) {
+                                        Text(
+                                            stringResource(R.string.stats_no_activities),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    } else {
+                                        HorizontalDivider(
+                                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                        )
+                                        selectedBucket.activities.forEach { activity ->
+                                            Row(
+                                                modifier              = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                                verticalAlignment     = Alignment.CenterVertically
                                             ) {
-                                                Icon(
-                                                    imageVector        = activityIcon(activity.type),
-                                                    contentDescription = null,
-                                                    tint               = getActivityColor(activity.type),
-                                                    modifier           = Modifier.size(18.dp)
-                                                )
-                                            }
-                                            Column(modifier = Modifier.weight(1f)) {
-                                                Text(
-                                                    activityTypeDisplayName(activity.type),
-                                                    style      = MaterialTheme.typography.bodyMedium,
-                                                    fontWeight = FontWeight.Medium
-                                                )
-                                                Text(
-                                                    formatDate(activity.timestamp),
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            }
-                                            Column(horizontalAlignment = Alignment.End) {
-                                                Text(
-                                                    formatDistance(activity.distanceMeters, useKm),
-                                                    style      = MaterialTheme.typography.bodyMedium,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color      = getActivityColor(activity.type)
-                                                )
-                                                Text(
-                                                    formatDuration(activity.durationSeconds),
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                                if (activity.caloriesBurned > 0) {
+                                                Box(
+                                                    modifier         = Modifier
+                                                        .size(32.dp)
+                                                        .background(
+                                                            getActivityColor(activity.type).copy(alpha = 0.1f),
+                                                            CircleShape
+                                                        ),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector        = activityIcon(activity.type),
+                                                        contentDescription = null,
+                                                        tint               = getActivityColor(activity.type),
+                                                        modifier           = Modifier.size(18.dp)
+                                                    )
+                                                }
+                                                Column(modifier = Modifier.weight(1f)) {
                                                     Text(
-                                                        "${activity.caloriesBurned} kcal",
+                                                        activityTypeDisplayName(activity.type),
+                                                        style      = MaterialTheme.typography.bodyMedium,
+                                                        fontWeight = FontWeight.Medium
+                                                    )
+                                                    Text(
+                                                        formatDate(activity.timestamp),
                                                         style = MaterialTheme.typography.labelSmall,
                                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                                     )
+                                                }
+                                                Column(horizontalAlignment = Alignment.End) {
+                                                    Text(
+                                                        formatDistance(activity.distanceMeters, useKm),
+                                                        style      = MaterialTheme.typography.bodyMedium,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color      = getActivityColor(activity.type)
+                                                    )
+                                                    Text(
+                                                        formatDuration(activity.durationSeconds),
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    )
+                                                    if (activity.caloriesBurned > 0) {
+                                                        Text(
+                                                            "${activity.caloriesBurned} kcal",
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                        )
+                                                    }
                                                 }
                                             }
                                         }
@@ -347,59 +353,61 @@ fun StatisticsScreen(viewModel: ActivityViewModel) {
                     }
                 }
             }
-        }
 
-        // Po tipu
-        StatSectionTitle(stringResource(R.string.stats_by_type))
+            // Po tipu
+            StatSectionTitle(stringResource(R.string.stats_by_type))
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape    = RoundedCornerShape(24.dp),
-            colors   = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-            )
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                val activitiesByType = filteredActivities
-                    .groupBy { it.type }
-                    .entries
-                    .sortedByDescending { it.value.size }
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape    = RoundedCornerShape(24.dp),
+                colors   = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    val activitiesByType = filteredActivities
+                        .groupBy { it.type }
+                        .entries
+                        .sortedByDescending { it.value.size }
 
-                if (activitiesByType.isEmpty()) {
-                    Text(
-                        text     = stringResource(R.string.stats_no_activities),
-                        style    = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(8.dp)
-                    )
-                } else {
-                    activitiesByType.forEachIndexed { idx, (type, list) ->
-                        TypeRow(
-                            type         = type,
-                            count        = list.size,
-                            color        = getActivityColor(type),
-                            distance     = list.sumOf { it.distanceMeters.toDouble() } / divisor,
-                            unit         = unitLabel,
-                            avgSpeed     = list.map { it.avgSpeedKmh }.filter { it > 0f }
-                                .average().takeIf { it.isFinite() }?.toFloat() ?: 0f,
-                            totalSeconds = list.sumOf { it.durationSeconds },
-                            useKm        = useKm
+                    if (activitiesByType.isEmpty()) {
+                        Text(
+                            text     = stringResource(R.string.stats_no_activities),
+                            style    = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(8.dp)
                         )
-                        if (idx < activitiesByType.size - 1) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(vertical = 12.dp),
-                                color    = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
+                    } else {
+                        activitiesByType.forEachIndexed { idx, (type, list) ->
+                            TypeRow(
+                                type         = type,
+                                count        = list.size,
+                                color        = getActivityColor(type),
+                                distance     = list.sumOf { it.distanceMeters.toDouble() } / divisor,
+                                unit         = unitLabel,
+                                avgSpeed     = list.map { it.avgSpeedKmh }.filter { it > 0f }
+                                    .average().takeIf { it.isFinite() }?.toFloat() ?: 0f,
+                                totalSeconds = list.sumOf { it.durationSeconds },
+                                useKm        = useKm
                             )
+                            if (idx < activitiesByType.size - 1) {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(vertical = 12.dp),
+                                    color    = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
+                                )
+                            }
                         }
                     }
                 }
             }
-        }
 
-        Spacer(modifier = Modifier.height(80.dp))
+            Spacer(modifier = Modifier.height(80.dp))
+        }
     }
 }
 
+
 // Bar chart
+@Suppress("UnusedBoxWithConstraintsScope")
 @Composable
 fun DistanceBarChart(
     buckets: List<StatsBucket>,
@@ -422,6 +430,12 @@ fun DistanceBarChart(
         val availableWidth = maxWidth
         val contentWidth = if (naturalWidth > availableWidth) naturalWidth else availableWidth
         val scrollState = rememberScrollState()
+
+        LaunchedEffect(buckets) {
+            if (naturalWidth > availableWidth) {
+                scrollState.scrollTo(scrollState.maxValue)
+            }
+        }
 
         Column(
             modifier = Modifier
@@ -487,12 +501,13 @@ fun DistanceBarChart(
             ) {
                 buckets.forEachIndexed { index, bucket ->
                     val isSelected = selectedIndex == index
+                    val shouldShowLabel = (index % labelEvery == 0) || (index == buckets.lastIndex)
 
                     Box(
                         modifier = Modifier.width(slot),
                         contentAlignment = Alignment.TopCenter
                     ) {
-                        if (index % labelEvery == 0) {
+                        if (shouldShowLabel) {
                             Text(
                                 text       = bucket.label,
                                 style      = MaterialTheme.typography.labelSmall,
@@ -636,7 +651,9 @@ fun EmptyChart() {
 fun buildDailyBuckets(activities: List<Activity>, days: Int, locale: Locale): List<StatsBucket> {
     val calendar   = Calendar.getInstance()
     val dayFormat  = SimpleDateFormat("EEE", locale)
-    val dateFormat = if (days > 7) SimpleDateFormat("d", locale) else SimpleDateFormat("dd.MM", locale)
+
+    val dateFormat = SimpleDateFormat("dd.MM", locale)
+
     val result     = mutableListOf<StatsBucket>()
 
     repeat(days) {

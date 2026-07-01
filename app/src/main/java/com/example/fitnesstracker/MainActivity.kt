@@ -29,6 +29,7 @@ import com.example.fitnesstracker.service.TrackingService
 import com.example.fitnesstracker.ui.ActivityViewModel
 import com.example.fitnesstracker.ui.screens.*
 import com.example.fitnesstracker.ui.theme.FitnessTrackerTheme
+import com.example.fitnesstracker.util.ProvideWindowSizeClass
 import com.example.fitnesstracker.util.navigateMain
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -57,10 +58,6 @@ class MainActivity : ComponentActivity() {
 
         super.onCreate(savedInstanceState)
 
-        // Pravi edge-to-edge prikaz: sistem prestaje sam da iscrtava/animira status bar
-        // pozadinu, pa nema više "crno -> mapa -> crno" treperenja dok se mapa/insetsi
-        // stabilizuju. Status/navigation bar postaju transparentni i sadržaj iscrtavamo
-        // ispod njih sam (preko windowInsetsPadding tamo gdje treba).
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
@@ -84,136 +81,133 @@ class MainActivity : ComponentActivity() {
 
                 CompositionLocalProvider(LocalAppLang provides currentLang) {
                     FitnessTrackerTheme {
-                        val navController = rememberNavController()
-                        val viewModel: ActivityViewModel = viewModel()
-                        val navBackStackEntry by navController.currentBackStackEntryAsState()
-                        val currentDestination = navBackStackEntry?.destination
+                        ProvideWindowSizeClass {
+                            val navController = rememberNavController()
+                            val viewModel: ActivityViewModel = viewModel()
+                            val navBackStackEntry by navController.currentBackStackEntryAsState()
+                            val currentDestination = navBackStackEntry?.destination
 
-                        val routeToNavigate by pendingNavRoute.collectAsState()
-                        LaunchedEffect(routeToNavigate) {
-                            routeToNavigate?.let { route ->
-                                pendingNavRoute.value = null
-                                navController.navigateMain(route)
+                            val routeToNavigate by pendingNavRoute.collectAsState()
+                            LaunchedEffect(routeToNavigate) {
+                                routeToNavigate?.let { route ->
+                                    pendingNavRoute.value = null
+                                    navController.navigateMain(route)
+                                }
                             }
-                        }
 
-                        val navLabels = remember(currentLang) {
-                            if (currentLang == "en")
-                                listOf("Home", "Statistics", "History", "Settings")
-                            else
-                                listOf("Početna", "Statistika", "Istorija", "Podešavanja")
-                        }
+                            val navLabels = remember(currentLang) {
+                                if (currentLang == "en")
+                                    listOf("Home", "Statistics", "History", "Settings")
+                                else
+                                    listOf("Početna", "Statistika", "Istorija", "Podešavanja")
+                            }
 
-                        val showBottomBar = currentDestination?.route != "detail/{activityId}"
-                        val isTrackingActive = currentDestination?.hierarchy?.any { it.route == "tracking" } == true
+                            val showBottomBar = currentDestination?.route != "detail/{activityId}"
+                            val isTrackingActive = currentDestination?.hierarchy?.any { it.route == "tracking" } == true
 
-                        Scaffold(
-                            // Ne dozvoljavamo Scaffold-u da sam rezerviše system bar insets —
-                            // to je izazivalo kašnjenje/re-layout (innerPadding stigne par
-                            // frejmova nakon insets-a) što je treperilo MapView na detail
-                            // ekranu. Svaki ekran sad sam upravlja svojim statusBarsPadding /
-                            // navigationBarsPadding po potrebi.
-                            contentWindowInsets = WindowInsets(0, 0, 0, 0),
-                            bottomBar = {
-                                if (showBottomBar) {
-                                    Box(modifier = Modifier.navigationBarsPadding()) {
-                                        NavigationBar {
-                                            NavigationBarItem(
-                                                icon     = { Icon(Icons.Default.Home, null) },
-                                                label    = { Text(navLabels[0], style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) },
-                                                selected = currentDestination?.hierarchy?.any { it.route == "dashboard" } == true,
-                                                onClick  = {
-                                                    navController.navigate("dashboard") {
+                            Scaffold(
+                                contentWindowInsets = WindowInsets(0, 0, 0, 0),
+                                bottomBar = {
+                                    if (showBottomBar) {
+                                        Box(modifier = Modifier.navigationBarsPadding()) {
+                                            NavigationBar {
+                                                NavigationBarItem(
+                                                    icon     = { Icon(Icons.Default.Home, null) },
+                                                    label    = { Text(navLabels[0], style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) },
+                                                    selected = currentDestination?.hierarchy?.any { it.route == "dashboard" } == true,
+                                                    onClick  = {
+                                                        navController.navigate("dashboard") {
+                                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                                            launchSingleTop = true
+                                                            restoreState    = true
+                                                        }
+                                                    }
+                                                )
+                                                NavigationBarItem(
+                                                    icon     = { Icon(Icons.Default.BarChart, null) },
+                                                    label    = { Text(navLabels[1], style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) },
+                                                    selected = currentDestination?.hierarchy?.any { it.route == "statistics" } == true,
+                                                    onClick  = {
+                                                        navController.navigate("statistics") {
+                                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                                            launchSingleTop = true
+                                                            restoreState    = true
+                                                        }
+                                                    }
+                                                )
+                                                NavigationBarItem(
+                                                    icon = {}, label = {}, selected = false, onClick = {}, enabled = false
+                                                )
+                                                NavigationBarItem(
+                                                    icon     = { Icon(Icons.Default.History, null) },
+                                                    label    = { Text(navLabels[2], style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) },
+                                                    selected = currentDestination?.hierarchy?.any { it.route == "history" } == true,
+                                                    onClick  = {
+                                                        navController.navigate("history") {
+                                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                                            launchSingleTop = true
+                                                            restoreState    = true
+                                                        }
+                                                    }
+                                                )
+                                                NavigationBarItem(
+                                                    icon     = { Icon(Icons.Default.Settings, null) },
+                                                    label    = { Text(navLabels[3], style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) },
+                                                    selected = currentDestination?.hierarchy?.any { it.route == "settings" } == true,
+                                                    onClick  = {
+                                                        navController.navigate("settings") {
+                                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                                            launchSingleTop = true
+                                                            restoreState    = true
+                                                        }
+                                                    }
+                                                )
+                                            }
+
+                                            FloatingActionButton(
+                                                onClick = {
+                                                    navController.navigate("tracking") {
                                                         popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                                                         launchSingleTop = true
                                                         restoreState    = true
                                                     }
-                                                }
-                                            )
-                                            NavigationBarItem(
-                                                icon     = { Icon(Icons.Default.BarChart, null) },
-                                                label    = { Text(navLabels[1], style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) },
-                                                selected = currentDestination?.hierarchy?.any { it.route == "statistics" } == true,
-                                                onClick  = {
-                                                    navController.navigate("statistics") {
-                                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                                        launchSingleTop = true
-                                                        restoreState    = true
-                                                    }
-                                                }
-                                            )
-                                            NavigationBarItem(
-                                                icon = {}, label = {}, selected = false, onClick = {}, enabled = false
-                                            )
-                                            NavigationBarItem(
-                                                icon     = { Icon(Icons.Default.History, null) },
-                                                label    = { Text(navLabels[2], style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) },
-                                                selected = currentDestination?.hierarchy?.any { it.route == "history" } == true,
-                                                onClick  = {
-                                                    navController.navigate("history") {
-                                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                                        launchSingleTop = true
-                                                        restoreState    = true
-                                                    }
-                                                }
-                                            )
-                                            NavigationBarItem(
-                                                icon     = { Icon(Icons.Default.Settings, null) },
-                                                label    = { Text(navLabels[3], style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false) },
-                                                selected = currentDestination?.hierarchy?.any { it.route == "settings" } == true,
-                                                onClick  = {
-                                                    navController.navigate("settings") {
-                                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                                        launchSingleTop = true
-                                                        restoreState    = true
-                                                    }
-                                                }
-                                            )
-                                        }
-
-                                        FloatingActionButton(
-                                            onClick = {
-                                                navController.navigate("tracking") {
-                                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                                    launchSingleTop = true
-                                                    restoreState    = true
-                                                }
-                                            },
-                                            modifier       = Modifier
-                                                .align(Alignment.Center).size(60.dp),
-                                            containerColor = if (isTrackingActive) MaterialTheme.colorScheme.primary
-                                            else MaterialTheme.colorScheme.primaryContainer,
-                                            contentColor   = if (isTrackingActive) MaterialTheme.colorScheme.onPrimary
-                                            else MaterialTheme.colorScheme.onPrimaryContainer,
-                                            shape          = CircleShape,
-                                            elevation      = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector        = Icons.Default.PlayArrow,
-                                                contentDescription = "Trening",
-                                                modifier           = Modifier.size(34.dp)
-                                            )
+                                                },
+                                                modifier       = Modifier
+                                                    .align(Alignment.Center).size(60.dp),
+                                                containerColor = if (isTrackingActive) MaterialTheme.colorScheme.primary
+                                                else MaterialTheme.colorScheme.primaryContainer,
+                                                contentColor   = if (isTrackingActive) MaterialTheme.colorScheme.onPrimary
+                                                else MaterialTheme.colorScheme.onPrimaryContainer,
+                                                shape          = CircleShape,
+                                                elevation      = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector        = Icons.Default.PlayArrow,
+                                                    contentDescription = "Trening",
+                                                    modifier           = Modifier.size(34.dp)
+                                                )
+                                            }
                                         }
                                     }
                                 }
-                            }
-                        ) { innerPadding ->
-                            NavHost(
-                                navController    = navController,
-                                startDestination = "dashboard",
-                                modifier         = Modifier.padding(innerPadding),
-                                enterTransition  = { EnterTransition.None },
-                                exitTransition   = { ExitTransition.None }
-                            ) {
-                                composable("dashboard")  { DashboardScreen(viewModel, navController) }
-                                composable("tracking")   { TrackingScreen(viewModel, navController) }
-                                composable("history")    { HistoryScreen(viewModel, navController) }
-                                composable("statistics") { StatisticsScreen(viewModel) }
-                                composable("settings")   { SettingsScreen(viewModel) }
-                                composable("detail/{activityId}") { backStackEntry ->
-                                    val activityId = backStackEntry.arguments
-                                        ?.getString("activityId")?.toLongOrNull() ?: return@composable
-                                    ActivityDetailScreen(activityId, viewModel, navController)
+                            ) { innerPadding ->
+                                NavHost(
+                                    navController    = navController,
+                                    startDestination = "dashboard",
+                                    modifier         = Modifier.padding(innerPadding),
+                                    enterTransition  = { EnterTransition.None },
+                                    exitTransition   = { ExitTransition.None }
+                                ) {
+                                    composable("dashboard")  { DashboardScreen(viewModel, navController) }
+                                    composable("tracking")   { TrackingScreen(viewModel, navController) }
+                                    composable("history")    { HistoryScreen(viewModel, navController) }
+                                    composable("statistics") { StatisticsScreen(viewModel) }
+                                    composable("settings")   { SettingsScreen(viewModel) }
+                                    composable("detail/{activityId}") { backStackEntry ->
+                                        val activityId = backStackEntry.arguments
+                                            ?.getString("activityId")?.toLongOrNull() ?: return@composable
+                                        ActivityDetailScreen(activityId, viewModel, navController)
+                                    }
                                 }
                             }
                         }

@@ -52,6 +52,10 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import com.example.fitnesstracker.data.model.Activity
+import com.example.fitnesstracker.util.LocalWindowWidthSizeClass
+import com.example.fitnesstracker.util.WindowWidthSizeClass
+import androidx.compose.ui.unit.Dp
 
 @Composable
 fun ActivityDetailScreen(
@@ -150,6 +154,22 @@ fun ActivityDetailScreen(
                     }
                 }
             )
+        }
+
+        val widthClass = LocalWindowWidthSizeClass.current
+
+        if (widthClass == WindowWidthSizeClass.EXPANDED) {
+            ActivityDetailExpandedLayout(
+                act               = act,
+                useKm             = useKm,
+                displayPoints     = displayPoints,
+                activityColor     = activityColor,
+                navController     = navController,
+                onEdit            = { showEditDialog = true },
+                onDelete          = { showDeleteDialog = true },
+                snackbarHostState = snackbarHostState
+            )
+            return@let
         }
 
         val configuration = LocalConfiguration.current
@@ -336,116 +356,7 @@ fun ActivityDetailScreen(
                         enter = fadeIn(tween(180)),
                         exit = fadeOut(tween(120))
                     ) {
-                        val gridBorderColor = MaterialTheme.colorScheme.outlineVariant
-                        val gridBorderWidth = 0.5.dp
-
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
-                        ) {
-                            Text(
-                                stringResource(R.string.detail_stats_title),
-                                style      = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 6.dp))
-
-                            Row(
-                                Modifier.fillMaxWidth().drawBehind {
-                                    drawLine(gridBorderColor, Offset(0f, size.height), Offset(size.width, size.height), gridBorderWidth.toPx())
-                                }
-                            ) {
-                                DetailItem(
-                                    Modifier.weight(1f).drawBehind {
-                                        drawLine(gridBorderColor, Offset(size.width, 0f), Offset(size.width, size.height), gridBorderWidth.toPx())
-                                    },
-                                    Icons.Default.Timer,
-                                    stringResource(R.string.detail_duration),
-                                    formatDuration(act.durationSeconds)
-                                )
-                                DetailItem(
-                                    Modifier.weight(1f),
-                                    Icons.Default.Route,
-                                    stringResource(R.string.detail_distance),
-                                    formatDistance(act.distanceMeters, useKm)
-                                )
-                            }
-
-                            Row(
-                                Modifier.fillMaxWidth().drawBehind {
-                                    drawLine(gridBorderColor, Offset(0f, size.height), Offset(size.width, size.height), gridBorderWidth.toPx())
-                                }
-                            ) {
-                                DetailItem(
-                                    Modifier.weight(1f).drawBehind {
-                                        drawLine(gridBorderColor, Offset(size.width, 0f), Offset(size.width, size.height), gridBorderWidth.toPx())
-                                    },
-                                    Icons.Default.Speed,
-                                    stringResource(R.string.detail_speed),
-                                    formatSpeed(act.avgSpeedKmh, useKm)
-                                )
-                                when (ActivityType.fromKey(act.type)) {
-                                    ActivityType.RUNNING, ActivityType.WALKING,
-                                    ActivityType.HIKING, ActivityType.CYCLING -> {
-                                        DetailItem(
-                                            Modifier.weight(1f),
-                                            Icons.Default.Timer,
-                                            stringResource(R.string.detail_pace),
-                                            "${formatPace(act.avgSpeedKmh, useKm)}/${if (useKm) "km" else "mi"}"
-                                        )
-                                    }
-                                    ActivityType.SWIMMING -> {
-                                        DetailItem(
-                                            Modifier.weight(1f),
-                                            Icons.Default.Timer,
-                                            stringResource(R.string.detail_pace) + " /100m",
-                                            "${formatSwimPace(act.avgSpeedKmh)}/100m"
-                                        )
-                                    }
-                                    ActivityType.OTHER -> {
-                                        Spacer(Modifier.weight(1f))
-                                    }
-                                }
-                            }
-
-                            Row(Modifier.fillMaxWidth()) {
-                                DetailItem(
-                                    Modifier.weight(1f).drawBehind {
-                                        drawLine(gridBorderColor, Offset(size.width, 0f), Offset(size.width, size.height), gridBorderWidth.toPx())
-                                    },
-                                    Icons.Default.Whatshot,
-                                    stringResource(R.string.detail_calories),
-                                    "${act.caloriesBurned} kcal"
-                                )
-                                DetailItem(
-                                    Modifier.weight(1f),
-                                    Icons.Default.CalendarToday,
-                                    stringResource(R.string.detail_date),
-                                    formatDate(act.timestamp).split(" ")[0]
-                                )
-                            }
-
-                            if (hasDescription) {
-                                HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 10.dp))
-                                Text(
-                                    stringResource(R.string.detail_description),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .heightIn(max = 100.dp)
-                                        .verticalScroll(rememberScrollState())
-                                        .padding(bottom = 8.dp)
-                                ) {
-                                    Text(act.description, style = MaterialTheme.typography.bodyLarge)
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(bottomInset))
-                        }
+                        DetailFullStatsContent(act = act, useKm = useKm, bottomInset = bottomInset)
                     }
                 }
             }
@@ -477,6 +388,206 @@ fun DetailItem(
             Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
         }
+    }
+}
+
+@Composable
+private fun DetailFullStatsContent(act: Activity, useKm: Boolean, bottomInset: Dp = 0.dp) {
+    val gridBorderColor = MaterialTheme.colorScheme.outlineVariant
+    val gridBorderWidth = 0.5.dp
+    val hasDescription = act.description.isNotBlank()
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+    ) {
+        Text(
+            stringResource(R.string.detail_stats_title),
+            style      = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 6.dp))
+
+        Row(
+            Modifier.fillMaxWidth().drawBehind {
+                drawLine(gridBorderColor, Offset(0f, size.height), Offset(size.width, size.height), gridBorderWidth.toPx())
+            }
+        ) {
+            DetailItem(
+                Modifier.weight(1f).drawBehind {
+                    drawLine(gridBorderColor, Offset(size.width, 0f), Offset(size.width, size.height), gridBorderWidth.toPx())
+                },
+                Icons.Default.Timer,
+                stringResource(R.string.detail_duration),
+                formatDuration(act.durationSeconds)
+            )
+            DetailItem(
+                Modifier.weight(1f),
+                Icons.Default.Route,
+                stringResource(R.string.detail_distance),
+                formatDistance(act.distanceMeters, useKm)
+            )
+        }
+
+        Row(
+            Modifier.fillMaxWidth().drawBehind {
+                drawLine(gridBorderColor, Offset(0f, size.height), Offset(size.width, size.height), gridBorderWidth.toPx())
+            }
+        ) {
+            DetailItem(
+                Modifier.weight(1f).drawBehind {
+                    drawLine(gridBorderColor, Offset(size.width, 0f), Offset(size.width, size.height), gridBorderWidth.toPx())
+                },
+                Icons.Default.Speed,
+                stringResource(R.string.detail_speed),
+                formatSpeed(act.avgSpeedKmh, useKm)
+            )
+            when (ActivityType.fromKey(act.type)) {
+                ActivityType.RUNNING, ActivityType.WALKING,
+                ActivityType.HIKING, ActivityType.CYCLING -> {
+                    DetailItem(
+                        Modifier.weight(1f),
+                        Icons.Default.Timer,
+                        stringResource(R.string.detail_pace),
+                        "${formatPace(act.avgSpeedKmh, useKm)}/${if (useKm) "km" else "mi"}"
+                    )
+                }
+                ActivityType.SWIMMING -> {
+                    DetailItem(
+                        Modifier.weight(1f),
+                        Icons.Default.Timer,
+                        stringResource(R.string.detail_pace) + " /100m",
+                        "${formatSwimPace(act.avgSpeedKmh)}/100m"
+                    )
+                }
+                ActivityType.OTHER -> {
+                    Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+
+        Row(Modifier.fillMaxWidth()) {
+            DetailItem(
+                Modifier.weight(1f).drawBehind {
+                    drawLine(gridBorderColor, Offset(size.width, 0f), Offset(size.width, size.height), gridBorderWidth.toPx())
+                },
+                Icons.Default.Whatshot,
+                stringResource(R.string.detail_calories),
+                "${act.caloriesBurned} kcal"
+            )
+            DetailItem(
+                Modifier.weight(1f),
+                Icons.Default.CalendarToday,
+                stringResource(R.string.detail_date),
+                formatDate(act.timestamp).split(" ")[0]
+            )
+        }
+
+        if (hasDescription) {
+            HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = 10.dp))
+            Text(
+                stringResource(R.string.detail_description),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 100.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 8.dp)
+            ) {
+                Text(act.description, style = MaterialTheme.typography.bodyLarge)
+            }
+        }
+        Spacer(modifier = Modifier.height(bottomInset))
+    }
+}
+
+@Composable
+private fun ActivityDetailExpandedLayout(
+    act: Activity,
+    useKm: Boolean,
+    displayPoints: List<GeoPoint>,
+    activityColor: Color,
+    navController: NavController,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    snackbarHostState: SnackbarHostState
+) {
+    val context = LocalContext.current
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Row(modifier = Modifier.fillMaxSize()) {
+            Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                if (displayPoints.isNotEmpty()) {
+                    OsmMapView(
+                        context    = context,
+                        gpsPoints  = displayPoints,
+                        routeColor = activityColor,
+                        modifier   = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.LocationOff, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(40.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(stringResource(R.string.detail_map_unavailable), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+
+            Surface(
+                modifier        = Modifier.width(380.dp).fillMaxHeight(),
+                color           = MaterialTheme.colorScheme.surface,
+                shadowElevation = 8.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .navigationBarsPadding()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .statusBarsPadding()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.detail_back))
+                        }
+                        Text(
+                            activityTypeDisplayName(act.type),
+                            style      = MaterialTheme.typography.titleMedium,
+                            modifier   = Modifier.weight(1f),
+                            fontWeight = FontWeight.Bold
+                        )
+                        IconButton(onClick = onEdit) {
+                            Icon(Icons.Default.Edit, stringResource(R.string.detail_edit_description), tint = MaterialTheme.colorScheme.primary)
+                        }
+                        IconButton(onClick = onDelete) {
+                            Icon(Icons.Default.Delete, stringResource(R.string.detail_delete), tint = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    DetailFullStatsContent(act = act, useKm = useKm, bottomInset = 24.dp)
+                }
+            }
+        }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier  = Modifier.align(Alignment.BottomCenter)
+        )
     }
 }
 
@@ -559,7 +670,11 @@ fun OsmMapView(
                 when (event.action) {
                     MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE ->
                         v.parent.requestDisallowInterceptTouchEvent(true)
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
+                    MotionEvent.ACTION_UP -> {
+                        v.parent.requestDisallowInterceptTouchEvent(false)
+                        v.performClick()
+                    }
+                    MotionEvent.ACTION_CANCEL ->
                         v.parent.requestDisallowInterceptTouchEvent(false)
                 }
                 false

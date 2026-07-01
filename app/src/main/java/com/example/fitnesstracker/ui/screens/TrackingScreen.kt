@@ -42,6 +42,9 @@ import com.example.fitnesstracker.data.model.Activity
 import com.example.fitnesstracker.data.model.ActivityType
 import com.example.fitnesstracker.service.TrackingService
 import com.example.fitnesstracker.ui.ActivityViewModel
+import com.example.fitnesstracker.util.LocalWindowWidthSizeClass
+import com.example.fitnesstracker.util.WindowWidthSizeClass
+import com.example.fitnesstracker.util.responsiveMaxWidth
 
 // Internal keys / database.
 val ACTIVITY_TYPE_KEYS = ActivityType.allKeys
@@ -242,7 +245,10 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
         // Main content
         Column(
             modifier            = Modifier
-                .fillMaxSize()
+                .align(Alignment.TopCenter)
+                .fillMaxHeight()
+                .responsiveMaxWidth()
+                .fillMaxWidth()
                 .statusBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
@@ -441,13 +447,19 @@ fun ActivityTypeSelector(
     selectedType: String,
     onSelect: (String) -> Unit
 ) {
+    val widthClass = LocalWindowWidthSizeClass.current
+    val columns = when (widthClass) {
+        WindowWidthSizeClass.COMPACT -> 3
+        WindowWidthSizeClass.MEDIUM  -> 4
+        WindowWidthSizeClass.EXPANDED -> 6
+    }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             stringResource(R.string.tracking_select_activity),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        val rows = ACTIVITY_TYPE_KEYS.chunked(3)
+        val rows = ACTIVITY_TYPE_KEYS.chunked(columns)
         rows.forEach { rowTypes ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -461,7 +473,7 @@ fun ActivityTypeSelector(
                         onSelect = onSelect
                     )
                 }
-                repeat(3 - rowTypes.size) {
+                repeat(columns - rowTypes.size) {
                     Spacer(modifier = Modifier.weight(1f))
                 }
             }

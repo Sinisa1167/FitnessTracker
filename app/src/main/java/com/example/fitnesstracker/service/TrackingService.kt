@@ -199,11 +199,6 @@ class TrackingService : LifecycleService() {
                 if (impliedSpeedKmh > maxSpeedKmh) return // GPS glitch, odbaci cijelu tačku
             }
 
-            // Umjesto mjerenja od svake prethodne tačke, mjerimo od zadnje PRIHVAĆENE
-            // distance-referentne tačke. Mali pomaci ispod praga se ne gube - naprosto
-            // se ne "pomjera" referenca, pa se sljedeći pomak nadodaje na već postojeći
-            // dok ukupno ne pređe prag. Time se izbjegava gubitak stvarnog kretanja
-            // usled GPS šuma kod sporih aktivnosti (npr. hodanje).
             val distanceRef = lastDistancePoint ?: last
             val refResult = FloatArray(1)
             Location.distanceBetween(

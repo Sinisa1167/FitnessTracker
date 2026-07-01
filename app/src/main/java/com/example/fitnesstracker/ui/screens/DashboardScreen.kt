@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import com.example.fitnesstracker.util.responsiveMaxWidth
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -111,158 +112,162 @@ fun DashboardScreen(
         )
     }
 
-    // Main content
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .statusBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp)
-            .padding(top = 16.dp, bottom = 100.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text(
-            text = stringResource(R.string.dashboard_title),
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
-        )
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-            ),
-            shape = MaterialTheme.shapes.extraLarge
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(20.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.dashboard_today_progress),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                ActivityTypeSwitcher(
-                    types = statsByType.map { it.type },
-                    selectedType = selectedType,
-                    onSelect = { selectedType = it }
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    GoalRing(
-                        progress = animatedDistanceProgress,
-                        centerValue = "%.1f".format(actualDistanceInUnits),
-                        centerUnit = unitLabel,
-                        label = stringResource(R.string.dashboard_goal_of, goalDistanceInUnits, unitLabel),
-                        modifier = Modifier.size(130.dp)
-                    )
-
-                    GoalRing(
-                        progress = animatedDurationProgress,
-                        centerValue = "%d".format((selectedStat?.durationSeconds ?: 0L) / 60L),
-                        centerUnit = "min",
-                        label = stringResource(
-                            R.string.dashboard_goal_of,
-                            selectedStat?.goal?.durationMin ?: 0f,
-                            "min"
-                        ),
-                        modifier = Modifier.size(130.dp)
-                    )
-                }
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            StatCard(
-                modifier = Modifier.weight(1f),
-                title = stringResource(R.string.dashboard_activities),
-                value = todayCount.toString(),
-                icon = Icons.Default.History,
-                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
-            )
-
-            CaloriesStatCard(
-                modifier = Modifier.weight(1f),
-                calories = todayCalories,
-                isEstimate = !userProfile.isConfigured,
-                onWarningClick = { showProfileDialog = true }
-            )
-        }
-
-        Button(
-            onClick = {
-                navController.navigateMain("tracking")
-            },
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = MaterialTheme.shapes.large
-        ) {
-            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(32.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                stringResource(R.string.dashboard_start_activity),
-                style = MaterialTheme.typography.titleMedium,
-                fontSize = 18.sp
-            )
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxHeight()
+                .responsiveMaxWidth()
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+                .padding(top = 16.dp, bottom = 100.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                stringResource(R.string.dashboard_recent_activities),
-                style = MaterialTheme.typography.titleLarge,
+                text = stringResource(R.string.dashboard_title),
+                style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold
             )
-            TextButton(onClick = {
-                navController.navigateMain("history")
-            }) {
-                Text(stringResource(R.string.dashboard_see_all))
-            }
-        }
 
-        if (activities.isEmpty()) {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Box(
-                    modifier = Modifier.fillMaxWidth().padding(32.dp),
-                    contentAlignment = Alignment.Center
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                ),
+                shape = MaterialTheme.shapes.extraLarge
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    Text(
+                        text = stringResource(R.string.dashboard_today_progress),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    ActivityTypeSwitcher(
+                        types = statsByType.map { it.type },
+                        selectedType = selectedType,
+                        onSelect = { selectedType = it }
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            Icons.Default.FitnessCenter,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        GoalRing(
+                            progress = animatedDistanceProgress,
+                            centerValue = "%.1f".format(actualDistanceInUnits),
+                            centerUnit = unitLabel,
+                            label = stringResource(R.string.dashboard_goal_of, goalDistanceInUnits, unitLabel),
+                            modifier = Modifier.size(130.dp)
                         )
-                        Text(
-                            stringResource(R.string.dashboard_no_activities),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+
+                        GoalRing(
+                            progress = animatedDurationProgress,
+                            centerValue = "%d".format((selectedStat?.durationSeconds ?: 0L) / 60L),
+                            centerUnit = "min",
+                            label = stringResource(
+                                R.string.dashboard_goal_of,
+                                selectedStat?.goal?.durationMin ?: 0f,
+                                "min"
+                            ),
+                            modifier = Modifier.size(130.dp)
                         )
                     }
                 }
             }
-        } else {
-            activities.take(3).forEach { activity ->
-                ActivityCard(
-                    activity = activity,
-                    useKm = useKm,
-                    onClick = { navController.navigate("detail/${activity.id}") }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                StatCard(
+                    modifier = Modifier.weight(1f),
+                    title = stringResource(R.string.dashboard_activities),
+                    value = todayCount.toString(),
+                    icon = Icons.Default.History,
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
                 )
+
+                CaloriesStatCard(
+                    modifier = Modifier.weight(1f),
+                    calories = todayCalories,
+                    isEstimate = !userProfile.isConfigured,
+                    onWarningClick = { showProfileDialog = true }
+                )
+            }
+
+            Button(
+                onClick = {
+                    navController.navigateMain("tracking")
+                },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = MaterialTheme.shapes.large
+            ) {
+                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(32.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    stringResource(R.string.dashboard_start_activity),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontSize = 18.sp
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    stringResource(R.string.dashboard_recent_activities),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                TextButton(onClick = {
+                    navController.navigateMain("history")
+                }) {
+                    Text(stringResource(R.string.dashboard_see_all))
+                }
+            }
+
+            if (activities.isEmpty()) {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.FitnessCenter,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                stringResource(R.string.dashboard_no_activities),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            } else {
+                activities.take(3).forEach { activity ->
+                    ActivityCard(
+                        activity = activity,
+                        useKm = useKm,
+                        onClick = { navController.navigate("detail/${activity.id}") }
+                    )
+                }
             }
         }
     }

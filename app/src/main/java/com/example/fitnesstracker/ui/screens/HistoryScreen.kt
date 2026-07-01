@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import com.example.fitnesstracker.util.responsiveMaxWidth
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -172,7 +173,10 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .align(Alignment.TopCenter)
+                .fillMaxHeight()
+                .responsiveMaxWidth()
+                .fillMaxWidth()
                 .statusBarsPadding()
                 .padding(horizontal = 16.dp)
                 .padding(top = 6.dp),
