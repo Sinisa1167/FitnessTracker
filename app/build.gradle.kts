@@ -42,10 +42,8 @@ android {
 dependencies {
     implementation(libs.androidx.compose.remote.creation.core)
     implementation(libs.androidx.compose.foundation)
-    implementation(libs.androidx.foundation)
     implementation(libs.androidx.compose.animation)
     implementation(libs.androidx.compose.foundation.layout)
-    implementation(libs.androidx.compose.ui)
     val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)
     androidTestImplementation(composeBom)
@@ -73,9 +71,9 @@ dependencies {
     implementation(libs.vico.compose.m3)
 
     implementation(libs.play.services.location)
-    implementation("androidx.compose.runtime:runtime-livedata:1.7.6")
-    implementation("androidx.appcompat:appcompat:1.7.0")
-    implementation("androidx.core:core-splashscreen:1.0.1")
+    implementation(libs.androidx.compose.runtime.livedata)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.core.splashscreen)
 
     implementation(libs.androidx.work)
     implementation(libs.androidx.datastore)

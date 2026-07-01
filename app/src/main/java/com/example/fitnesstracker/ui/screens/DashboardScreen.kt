@@ -21,7 +21,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.example.fitnesstracker.R
 import com.example.fitnesstracker.data.calculateCalories
 import com.example.fitnesstracker.data.model.ActivityType
@@ -116,6 +115,7 @@ fun DashboardScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .statusBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
             .padding(top = 16.dp, bottom = 100.dp),

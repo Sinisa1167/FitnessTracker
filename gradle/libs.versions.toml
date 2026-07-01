@@ -19,11 +19,9 @@ datastore = "1.1.2"
 coroutines = "1.9.0"
 playServicesLocation = "21.3.0"
 remoteCreationCore = "1.0.0-alpha010"
-foundation = "1.11.1"
-foundationVersion = "1.11.2"
-animation = "1.11.2"
-foundationLayout = "1.11.2"
-ui = "1.11.2"
+coreSplashscreen = "1.0.1"
+appcompat = "1.7.0"
+composeRuntimeLivedata = "1.7.6"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -54,11 +52,12 @@ androidx-datastore = { group = "androidx.datastore", name = "datastore-preferenc
 kotlinx-coroutines = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
 androidx-compose-remote-creation-core = { group = "androidx.compose.remote", name = "remote-creation-core", version.ref = "remoteCreationCore" }
-androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
-androidx-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundationVersion" }
-androidx-compose-animation = { group = "androidx.compose.animation", name = "animation", version.ref = "animation" }
-androidx-compose-foundation-layout = { group = "androidx.compose.foundation", name = "foundation-layout", version.ref = "foundationLayout" }
-androidx-compose-ui = { group = "androidx.compose.ui", name = "ui", version.ref = "ui" }
+androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation" }
+androidx-compose-animation = { group = "androidx.compose.animation", name = "animation" }
+androidx-compose-foundation-layout = { group = "androidx.compose.foundation", name = "foundation-layout" }
+androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "coreSplashscreen" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+androidx-compose-runtime-livedata = { group = "androidx.compose.runtime", name = "runtime-livedata", version.ref = "composeRuntimeLivedata" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

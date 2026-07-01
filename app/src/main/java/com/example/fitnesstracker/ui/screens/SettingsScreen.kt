@@ -91,6 +91,8 @@ fun SettingsScreen(viewModel: ActivityViewModel) {
     val dialogResetDesc  = stringResource(R.string.settings_reset_dialog_desc)
     val dialogResetConf  = stringResource(R.string.settings_reset_dialog_confirm)
     val dialogResetCanc  = stringResource(R.string.settings_reset_dialog_cancel)
+    val kilometresString  = stringResource(R.string.settings_units_km)
+    val milesString  = stringResource(R.string.settings_units_mi)
 
     if (showResetDialog) {
         AlertDialog(
@@ -122,6 +124,7 @@ fun SettingsScreen(viewModel: ActivityViewModel) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)
                 .padding(top = 16.dp, bottom = 24.dp),
@@ -434,13 +437,13 @@ fun SettingsScreen(viewModel: ActivityViewModel) {
                             FilterChip(
                                 selected = units == "km",
                                 onClick  = { scope.launch { prefs.setUnits("km") } },
-                                label    = { Text(stringResource(R.string.settings_units_km)) },
+                                label    = { Text(kilometresString) },
                                 modifier = Modifier.weight(1f)
                             )
                             FilterChip(
                                 selected = units == "mi",
                                 onClick  = { scope.launch { prefs.setUnits("mi") } },
-                                label    = { Text(stringResource(R.string.settings_units_mi)) },
+                                label    = { Text(milesString) },
                                 modifier = Modifier.weight(1f)
                             )
                         }

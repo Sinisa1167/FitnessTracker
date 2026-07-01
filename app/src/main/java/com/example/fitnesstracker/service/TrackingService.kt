@@ -4,15 +4,19 @@ import android.app.Notification
 import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.location.Location
+import android.os.Build
 import android.os.HandlerThread
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.MutableLiveData
 import com.example.fitnesstracker.FitnessApp
 import com.example.fitnesstracker.MainActivity
 import com.example.fitnesstracker.R
+import com.example.fitnesstracker.data.model.ActivityType
 import com.google.android.gms.location.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,7 +26,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancel
-private const val MIN_DISTANCE_METERS = 3f
+
+private const val MAX_ACCEPTABLE_ACCURACY_METERS = 20f
+private const val MAX_ACCEPTABLE_SPEED_ACCURACY_MPS = 1.5f
+private const val STATIONARY_DISTANCE_THRESHOLD_METERS = 2f
+private const val SPEED_SMOOTHING_SAMPLE_COUNT = 5
+private const val MIN_SPEED_KMH_THRESHOLD = 1f
 
 class TrackingService : LifecycleService() {
 
@@ -30,10 +39,13 @@ class TrackingService : LifecycleService() {
     private lateinit var locationCallback: LocationCallback
     private lateinit var locationHandlerThread: HandlerThread
     private var startTimeMillis = 0L
-    private var speedSampleCount = 0
-    private var speedSampleSum = 0f
+    private var movingTimeMillis = 0L
+    private var lastResumeTimeMillis = 0L
+    private var recentSpeedSamples = ArrayDeque<Float>()
+    private var lastDistancePoint: Location? = null
     private var timerJob: Job? = null
     private var serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var activityTypeKey: String = ActivityType.RUNNING.key
 
     companion object {
         val isTracking      = MutableLiveData(false)
@@ -48,7 +60,16 @@ class TrackingService : LifecycleService() {
         const val ACTION_STOP       = "ACTION_STOP"
         const val ACTION_PAUSE      = "ACTION_PAUSE"
         const val ACTION_RESUME     = "ACTION_RESUME"
-        const val EXTRA_NAVIGATE_TO = "navigate_to"
+        const val EXTRA_NAVIGATE_TO   = "navigate_to"
+        const val EXTRA_ACTIVITY_TYPE = "activity_type"
+
+        fun maxPlausibleSpeedKmh(typeKey: String): Float = when (ActivityType.fromKey(typeKey)) {
+            ActivityType.WALKING, ActivityType.HIKING -> 10f
+            ActivityType.RUNNING  -> 25f
+            ActivityType.SWIMMING -> 8f
+            ActivityType.CYCLING  -> 50f
+            ActivityType.OTHER    -> 40f
+        }
     }
 
     override fun onCreate() {
@@ -64,7 +85,10 @@ class TrackingService : LifecycleService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_START  -> startTracking()
+            ACTION_START -> {
+                intent.getStringExtra(EXTRA_ACTIVITY_TYPE)?.let { activityTypeKey = it }
+                startTracking()
+            }
             ACTION_STOP   -> stopTracking()
             ACTION_PAUSE  -> pauseTracking()
             ACTION_RESUME -> resumeTracking()
@@ -73,11 +97,21 @@ class TrackingService : LifecycleService() {
     }
 
     private fun startTracking() {
-        startForeground(1, buildNotification())
+        val serviceType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (hasLocationPermission())
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+            else
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+        } else {
+            0
+        }
+
+        ServiceCompat.startForeground(this, 1, buildNotification(), serviceType)
+
         isTracking.postValue(true)
         isPaused.postValue(false)
-        speedSampleCount = 0
-        speedSampleSum = 0f
+        recentSpeedSamples.clear()
+        lastDistancePoint = null
         pathPoints.postValue(mutableListOf())
         distanceMeters.postValue(0f)
         elapsedSeconds.postValue(0L)
@@ -85,8 +119,16 @@ class TrackingService : LifecycleService() {
         avgSpeedKmh.postValue(0f)
 
         startTimeMillis = System.currentTimeMillis()
+        movingTimeMillis = 0L
+        lastResumeTimeMillis = startTimeMillis
         startTimer()
         requestLocationUpdates()
+    }
+
+    private fun hasLocationPermission(): Boolean {
+        val hasFine = ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val hasCoarse = ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        return hasFine || hasCoarse
     }
 
     private fun startTimer() {
@@ -102,6 +144,7 @@ class TrackingService : LifecycleService() {
     private fun pauseTracking() {
         isPaused.postValue(true)
         currentSpeedKmh.postValue(0f)
+        movingTimeMillis += System.currentTimeMillis() - lastResumeTimeMillis
         timerJob?.cancel()
         try { fusedLocationClient.removeLocationUpdates(locationCallback) } catch (e: Exception) {}
     }
@@ -110,6 +153,7 @@ class TrackingService : LifecycleService() {
         isPaused.postValue(false)
         val pausedSeconds = elapsedSeconds.value ?: 0L
         startTimeMillis = System.currentTimeMillis() - (pausedSeconds * 1000L)
+        lastResumeTimeMillis = System.currentTimeMillis()
         startTimer()
         requestLocationUpdates()
     }
@@ -134,9 +178,10 @@ class TrackingService : LifecycleService() {
     }
 
     private fun addPathPoint(location: Location) {
-        if (location.hasAccuracy() && location.accuracy > 50f) return
+        if (location.hasAccuracy() && location.accuracy > MAX_ACCEPTABLE_ACCURACY_METERS) return
 
         val points = (pathPoints.value ?: mutableListOf()).toMutableList()
+        val maxSpeedKmh = maxPlausibleSpeedKmh(activityTypeKey)
 
         if (points.isNotEmpty()) {
             val last = points.last()
@@ -146,20 +191,52 @@ class TrackingService : LifecycleService() {
                 location.latitude, location.longitude,
                 result
             )
-            val delta = result[0]
-            if (delta >= MIN_DISTANCE_METERS) {
-                distanceMeters.postValue((distanceMeters.value ?: 0f) + delta)
+            val rawDeltaFromLast = result[0]
+
+            val timeDeltaSec = (location.time - last.time) / 1000f
+            if (timeDeltaSec > 0f) {
+                val impliedSpeedKmh = (rawDeltaFromLast / timeDeltaSec) * 3.6f
+                if (impliedSpeedKmh > maxSpeedKmh) return // GPS glitch, odbaci cijelu tačku
             }
+
+            // Umjesto mjerenja od svake prethodne tačke, mjerimo od zadnje PRIHVAĆENE
+            // distance-referentne tačke. Mali pomaci ispod praga se ne gube - naprosto
+            // se ne "pomjera" referenca, pa se sljedeći pomak nadodaje na već postojeći
+            // dok ukupno ne pređe prag. Time se izbjegava gubitak stvarnog kretanja
+            // usled GPS šuma kod sporih aktivnosti (npr. hodanje).
+            val distanceRef = lastDistancePoint ?: last
+            val refResult = FloatArray(1)
+            Location.distanceBetween(
+                distanceRef.latitude, distanceRef.longitude,
+                location.latitude, location.longitude,
+                refResult
+            )
+            val distanceFromRef = refResult[0]
+
+            if (distanceFromRef >= STATIONARY_DISTANCE_THRESHOLD_METERS) {
+                distanceMeters.postValue((distanceMeters.value ?: 0f) + distanceFromRef)
+                lastDistancePoint = location
+            }
+        } else {
+            lastDistancePoint = location
         }
 
-        if (location.hasSpeed() && location.speed > 0.3f) {
-            val kmh = location.speed * 3.6f
-            speedSampleCount++
-            speedSampleSum += kmh
-            currentSpeedKmh.postValue(kmh)
-            avgSpeedKmh.postValue(speedSampleSum / speedSampleCount)
-        } else {
-            currentSpeedKmh.postValue(0f)
+        val rawSpeedKmh = if (location.hasSpeed() &&
+            location.hasSpeedAccuracy() &&
+            location.speedAccuracyMetersPerSecond < MAX_ACCEPTABLE_SPEED_ACCURACY_MPS &&
+            location.speed * 3.6f <= maxSpeedKmh
+        ) location.speed * 3.6f else 0f
+
+        recentSpeedSamples.addLast(rawSpeedKmh)
+        if (recentSpeedSamples.size > SPEED_SMOOTHING_SAMPLE_COUNT) recentSpeedSamples.removeFirst()
+        val smoothedSpeedKmh = recentSpeedSamples.average().toFloat()
+        val displaySpeedKmh = if (smoothedSpeedKmh < MIN_SPEED_KMH_THRESHOLD) 0f else smoothedSpeedKmh
+        currentSpeedKmh.postValue(displaySpeedKmh)
+
+        val totalDistanceKm = (distanceMeters.value ?: 0f) / 1000f
+        val movingSeconds = (movingTimeMillis + (System.currentTimeMillis() - lastResumeTimeMillis)) / 1000f
+        if (movingSeconds > 0f) {
+            avgSpeedKmh.postValue(totalDistanceKm / (movingSeconds / 3600f))
         }
 
         points.add(location)
@@ -167,20 +244,24 @@ class TrackingService : LifecycleService() {
     }
 
     private fun requestLocationUpdates() {
-        val hasFine   = ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        val hasCoarse = ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-
-        if (!hasFine && !hasCoarse) {
+        if (!hasLocationPermission()) {
             android.util.Log.w("TrackingService", "Tracking started without GPS permissions.")
             return
         }
 
+        val hasFine = ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
         val priority = if (hasFine) Priority.PRIORITY_HIGH_ACCURACY
         else         Priority.PRIORITY_BALANCED_POWER_ACCURACY
 
-        val request = LocationRequest.Builder(priority, 1000L)
-            .setMinUpdateIntervalMillis(500L)
-            .setMaxUpdateDelayMillis(1000L)
+        val intervalMillis = when (ActivityType.fromKey(activityTypeKey)) {
+            ActivityType.CYCLING -> 1000L
+            else -> 2000L
+        }
+
+        val request = LocationRequest.Builder(priority, intervalMillis)
+            .setMinUpdateIntervalMillis(intervalMillis / 2)
+            .setMaxUpdateDelayMillis(intervalMillis)
             .build()
 
         try {

@@ -11,6 +11,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -65,8 +66,15 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
     val distanceDisplay = if (useKm) distanceMeters / 1000f else distanceMeters / 1609f
     val distanceUnit    = if (useKm) "KM" else "MI"
     val speedUnit       = if (useKm) "km/h" else "mph"
-    val currentSpeed    = if (useKm) currentSpeedKmh else currentSpeedKmh * 0.621371f
+    val currentSpeedRaw = if (useKm) currentSpeedKmh else currentSpeedKmh * 0.621371f
     val avgSpeed        = if (useKm) avgSpeedKmh else avgSpeedKmh * 0.621371f
+
+    // Glatka animacija trenutne brzine da ne "skače" naglo na UI-ju
+    val currentSpeed by animateFloatAsState(
+        targetValue   = currentSpeedRaw,
+        animationSpec = tween(600),
+        label         = "currentSpeed"
+    )
 
     var selectedType by rememberSaveable { mutableStateOf(ActivityType.RUNNING.key) }
 
@@ -114,12 +122,12 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
 
     val notificationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { startTracking(context) }
+    ) { startTracking(context, selectedType) }
 
     val locationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { perms ->
-        if (perms.values.all { it }) checkNotificationsAndStart(context, notificationLauncher)
+        if (perms.values.all { it }) checkNotificationsAndStart(context, selectedType, notificationLauncher)
         else showPermissionDialog = true
     }
 
@@ -138,7 +146,7 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
             dismissButton = {
                 TextButton(onClick = {
                     showLocationExplanationDialog = false
-                    checkNotificationsAndStart(context, notificationLauncher)
+                    checkNotificationsAndStart(context, selectedType, notificationLauncher)
                 }) { Text(stringResource(R.string.gps_continue_without)) }
             }
         )
@@ -162,7 +170,7 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
             dismissButton = {
                 TextButton(onClick = {
                     showPermissionDialog = false
-                    checkNotificationsAndStart(context, notificationLauncher)
+                    checkNotificationsAndStart(context, selectedType, notificationLauncher)
                 }) { Text(stringResource(R.string.perm_continue_without)) }
             }
         )
@@ -180,11 +188,20 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
                         R.string.save_distance,
                         "%.2f %s".format(distanceDisplay, if (useKm) "km" else "mi")
                     ))
+                    val maxDescriptionLength = 200
                     OutlinedTextField(
                         value         = description,
-                        onValueChange = { description = it },
+                        onValueChange = { if (it.length <= maxDescriptionLength) description = it },
                         label         = { Text(stringResource(R.string.save_description_hint)) },
-                        modifier      = Modifier.fillMaxWidth()
+                        modifier      = Modifier.fillMaxWidth(),
+                        minLines      = 3,
+                        maxLines      = 5
+                    )
+                    Text(
+                        "${description.length}/$maxDescriptionLength",
+                        style    = MaterialTheme.typography.labelSmall,
+                        color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.align(Alignment.End)
                     )
                 }
             },
@@ -222,194 +239,195 @@ fun TrackingScreen(viewModel: ActivityViewModel, navController: NavController) {
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-    // Main content
-    Column(
-        modifier            = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text(
-            text = when {
-                isPaused   -> stringResource(R.string.tracking_paused_title)
-                isTracking -> stringResource(R.string.tracking_in_progress)
-                else       -> stringResource(R.string.tracking_new)
-            },
-            style      = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
-        )
-
-        AnimatedVisibility(visible = !isLocationEnabled && !isTracking) {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.LocationOff, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                    Text(
-                        stringResource(R.string.tracking_gps_off),
-                        modifier = Modifier.weight(1f),
-                        style    = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
-        }
-
-        AnimatedVisibility(visible = isPaused) {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
-                Row(
-                    modifier              = Modifier.fillMaxWidth().padding(12.dp),
-                    verticalAlignment     = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        Icons.Default.Pause,
-                        contentDescription = null,
-                        modifier = Modifier.padding(end = 8.dp),
-                        tint     = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                    Text(
-                        stringResource(R.string.tracking_paused_banner),
-                        style      = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                        color      = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                }
-            }
-        }
-
-        // Activity type selector
-        if (!isTracking) {
-            ActivityTypeSelector(
-                selectedType = selectedType,
-                onSelect = { selectedType = it }
-            )
-        }
-
-        // Stats card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape    = MaterialTheme.shapes.extraLarge,
-            colors   = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f)
-            )
+        // Main content
+        Column(
+            modifier            = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(
-                modifier            = Modifier.padding(24.dp).fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(20.dp)
-            ) {
-                Text(
-                    formatDuration(elapsedSeconds),
-                    fontSize   = 56.sp,
-                    fontWeight = FontWeight.Black,
-                    color      = if (isPaused) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                    else MaterialTheme.colorScheme.onSurface
-                )
+            Text(
+                text = when {
+                    isPaused   -> stringResource(R.string.tracking_paused_title)
+                    isTracking -> stringResource(R.string.tracking_in_progress)
+                    else       -> stringResource(R.string.tracking_new)
+                },
+                style      = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold
+            )
 
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    StatItem(label = distanceUnit, value = "%.2f".format(distanceDisplay))
-                    StatDivider()
-                    StatItem(label = stringResource(R.string.tracking_kcal), value = "$caloriesBurned")
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    StatItem(
-                        label     = stringResource(R.string.tracking_speed_current),
-                        value     = "%.1f".format(currentSpeed),
-                        unit      = speedUnit,
-                        highlight = isTracking && !isPaused
-                    )
-                    StatDivider()
-                    StatItem(
-                        label = stringResource(R.string.tracking_speed_avg),
-                        value = "%.1f".format(avgSpeed),
-                        unit  = speedUnit
-                    )
+            AnimatedVisibility(visible = !isLocationEnabled && !isTracking) {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.LocationOff, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                        Text(
+                            stringResource(R.string.tracking_gps_off),
+                            modifier = Modifier.weight(1f),
+                            style    = MaterialTheme.typography.bodySmall
+                        )
+                    }
                 }
             }
-        }
 
-        // Control buttons
-        if (isTracking) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            AnimatedVisibility(visible = isPaused) {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                    Row(
+                        modifier              = Modifier.fillMaxWidth().padding(12.dp),
+                        verticalAlignment     = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Pause,
+                            contentDescription = null,
+                            modifier = Modifier.padding(end = 8.dp),
+                            tint     = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Text(
+                            stringResource(R.string.tracking_paused_banner),
+                            style      = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            color      = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                }
+            }
+
+            // Activity type selector
+            if (!isTracking) {
+                ActivityTypeSelector(
+                    selectedType = selectedType,
+                    onSelect = { selectedType = it }
+                )
+            }
+
+            // Stats card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape    = MaterialTheme.shapes.extraLarge,
+                colors   = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f)
+                )
+            ) {
+                Column(
+                    modifier            = Modifier.padding(24.dp).fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                ) {
+                    Text(
+                        formatDuration(elapsedSeconds),
+                        fontSize   = 56.sp,
+                        fontWeight = FontWeight.Black,
+                        color      = if (isPaused) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                        else MaterialTheme.colorScheme.onSurface
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        StatItem(label = distanceUnit, value = "%.2f".format(distanceDisplay))
+                        StatDivider()
+                        StatItem(label = stringResource(R.string.tracking_kcal), value = "$caloriesBurned")
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        StatItem(
+                            label     = stringResource(R.string.tracking_speed_current),
+                            value     = "%.1f".format(currentSpeed),
+                            unit      = speedUnit,
+                            highlight = isTracking && !isPaused
+                        )
+                        StatDivider()
+                        StatItem(
+                            label = stringResource(R.string.tracking_speed_avg),
+                            value = "%.1f".format(avgSpeed),
+                            unit  = speedUnit
+                        )
+                    }
+                }
+            }
+
+            // Control buttons
+            if (isTracking) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(
+                        onClick = {
+                            val action = if (isPaused) TrackingService.ACTION_RESUME
+                            else TrackingService.ACTION_PAUSE
+                            context.startService(
+                                Intent(context, TrackingService::class.java).apply { this.action = action }
+                            )
+                        },
+                        modifier = Modifier.weight(1f).height(64.dp),
+                        colors   = ButtonDefaults.buttonColors(
+                            containerColor = if (isPaused) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.secondary
+                        ),
+                        shape = MaterialTheme.shapes.large
+                    ) {
+                        Icon(
+                            if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                            contentDescription = null
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            if (isPaused) stringResource(R.string.tracking_resume)
+                            else          stringResource(R.string.tracking_pause),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Button(
+                        onClick  = { stopTracking(context); showSaveDialog = true },
+                        modifier = Modifier.weight(1f).height(64.dp),
+                        colors   = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                        shape    = MaterialTheme.shapes.large
+                    ) {
+                        Icon(Icons.Default.Stop, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.tracking_stop), fontWeight = FontWeight.Bold)
+                    }
+                }
+            } else {
                 Button(
                     onClick = {
-                        val action = if (isPaused) TrackingService.ACTION_RESUME
-                        else TrackingService.ACTION_PAUSE
-                        context.startService(
-                            Intent(context, TrackingService::class.java).apply { this.action = action }
-                        )
+                        val gpsOn = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+                        val locOk = ContextCompat.checkSelfPermission(
+                            context, Manifest.permission.ACCESS_FINE_LOCATION
+                        ) == PackageManager.PERMISSION_GRANTED
+
+                        when {
+                            !gpsOn -> showLocationExplanationDialog = true
+                            !locOk -> locationLauncher.launch(
+                                arrayOf(
+                                    Manifest.permission.ACCESS_FINE_LOCATION,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION
+                                )
+                            )
+                            else   -> checkNotificationsAndStart(context, selectedType, notificationLauncher)
+                        }
                     },
-                    modifier = Modifier.weight(1f).height(64.dp),
-                    colors   = ButtonDefaults.buttonColors(
-                        containerColor = if (isPaused) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.secondary
-                    ),
-                    shape = MaterialTheme.shapes.large
+                    modifier = Modifier.fillMaxWidth().height(64.dp),
+                    colors   = ButtonDefaults.buttonColors(containerColor = startButtonColor),
+                    shape    = MaterialTheme.shapes.large
                 ) {
                     Icon(
-                        if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
-                        contentDescription = null
+                        imageVector        = Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        modifier           = Modifier.size(36.dp)
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        if (isPaused) stringResource(R.string.tracking_resume)
-                        else          stringResource(R.string.tracking_pause),
-                        fontWeight = FontWeight.Bold
+                        stringResource(R.string.tracking_start),
+                        style    = MaterialTheme.typography.titleMedium,
+                        fontSize = 20.sp
                     )
                 }
-
-                Button(
-                    onClick  = { stopTracking(context); showSaveDialog = true },
-                    modifier = Modifier.weight(1f).height(64.dp),
-                    colors   = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                    shape    = MaterialTheme.shapes.large
-                ) {
-                    Icon(Icons.Default.Stop, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.tracking_stop), fontWeight = FontWeight.Bold)
-                }
-            }
-        } else {
-            Button(
-                onClick = {
-                    val gpsOn = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
-                    val locOk = ContextCompat.checkSelfPermission(
-                        context, Manifest.permission.ACCESS_FINE_LOCATION
-                    ) == PackageManager.PERMISSION_GRANTED
-
-                    when {
-                        !gpsOn -> showLocationExplanationDialog = true
-                        !locOk -> locationLauncher.launch(
-                            arrayOf(
-                                Manifest.permission.ACCESS_FINE_LOCATION,
-                                Manifest.permission.ACCESS_COARSE_LOCATION
-                            )
-                        )
-                        else   -> checkNotificationsAndStart(context, notificationLauncher)
-                    }
-                },
-                modifier = Modifier.fillMaxWidth().height(64.dp),
-                colors   = ButtonDefaults.buttonColors(containerColor = startButtonColor),
-                shape    = MaterialTheme.shapes.large
-            ) {
-                Icon(
-                    imageVector        = Icons.Default.PlayArrow,
-                    contentDescription = null,
-                    modifier           = Modifier.size(36.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    stringResource(R.string.tracking_start),
-                    style    = MaterialTheme.typography.titleMedium,
-                    fontSize = 20.sp
-                )
             }
         }
-    }
         SnackbarHost(
             hostState = snackbarHostState,
             modifier  = Modifier.align(Alignment.BottomCenter)
@@ -545,6 +563,7 @@ fun StatDivider() {
 
 private fun checkNotificationsAndStart(
     context: Context,
+    activityType: String,
     launcher: androidx.activity.result.ActivityResultLauncher<String>
 ) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -554,16 +573,19 @@ private fun checkNotificationsAndStart(
         ) {
             launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
-            startTracking(context)
+            startTracking(context, activityType)
         }
     } else {
-        startTracking(context)
+        startTracking(context, activityType)
     }
 }
 
-private fun startTracking(context: Context) {
+private fun startTracking(context: Context, activityType: String) {
     context.startForegroundService(
-        Intent(context, TrackingService::class.java).apply { action = TrackingService.ACTION_START }
+        Intent(context, TrackingService::class.java).apply {
+            action = TrackingService.ACTION_START
+            putExtra(TrackingService.EXTRA_ACTIVITY_TYPE, activityType)
+        }
     )
 }
 

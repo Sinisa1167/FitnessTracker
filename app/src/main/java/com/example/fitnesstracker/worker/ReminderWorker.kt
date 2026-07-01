@@ -5,8 +5,6 @@ import android.content.Context
 import androidx.core.app.NotificationCompat
 import androidx.work.*
 import com.example.fitnesstracker.FitnessApp
-import com.example.fitnesstracker.data.PreferencesManager
-import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 import com.example.fitnesstracker.R
 
@@ -31,7 +29,7 @@ class ReminderWorker(context: Context, params: WorkerParameters) : CoroutineWork
     companion object {
         private const val WORK_NAME = "reminder_work"
 
-        suspend fun scheduleFromNow(context: Context, hours: Int) {
+        fun scheduleFromNow(context: Context, hours: Int) {
             val request = OneTimeWorkRequestBuilder<ReminderWorker>()
                 .setInitialDelay(hours.toLong(), TimeUnit.HOURS)
                 .build()

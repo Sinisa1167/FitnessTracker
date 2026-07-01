@@ -173,6 +173,7 @@ fun HistoryScreen(viewModel: ActivityViewModel, navController: NavController) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
                 .padding(horizontal = 16.dp)
                 .padding(top = 6.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)

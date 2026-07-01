@@ -1,6 +1,10 @@
 package com.example.fitnesstracker.ui.screens
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -12,27 +16,31 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.fitnesstracker.LocalAppLang
 import com.example.fitnesstracker.R
+import com.example.fitnesstracker.data.model.Activity
 import com.example.fitnesstracker.ui.ActivityViewModel
-import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
-import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
-import com.patrykandpatrick.vico.compose.chart.Chart
-import com.patrykandpatrick.vico.compose.chart.column.columnChart
-import com.patrykandpatrick.vico.core.component.shape.LineComponent
-import com.patrykandpatrick.vico.core.component.shape.Shapes
-import com.patrykandpatrick.vico.core.entry.ChartEntryModelProducer
-import com.patrykandpatrick.vico.core.entry.entryOf
 import java.text.SimpleDateFormat
 import java.util.*
-import androidx.compose.foundation.clickable
 
-enum class StatsPeriod { WEEK, MONTH, THREE_MONTHS}
+enum class StatsPeriod { WEEK, MONTH, THREE_MONTHS }
+
+/** Jedan "bucket" na grafikonu — ili jedan dan (7/30 dana) ili jedna sedmica (90 dana). */
+data class StatsBucket(
+    val start: Long,
+    val end: Long,
+    val label: String,
+    val activities: List<Activity>
+) {
+    val distanceMeters: Float get() = activities.sumOf { it.distanceMeters.toDouble() }.toFloat()
+}
 
 @Composable
 fun StatisticsScreen(viewModel: ActivityViewModel) {
@@ -49,72 +57,48 @@ fun StatisticsScreen(viewModel: ActivityViewModel) {
         if (lang == "sr") Locale.forLanguageTag("sr-Latn") else Locale(lang)
     }
 
-    val filteredActivities = remember(activities, selectedPeriod) {
-        val now = System.currentTimeMillis()
-        val from = when (selectedPeriod) {
-            StatsPeriod.WEEK         -> now - 7L  * 24 * 60 * 60 * 1000
-            StatsPeriod.MONTH        -> now - 30L * 24 * 60 * 60 * 1000
-            StatsPeriod.THREE_MONTHS -> now - 90L * 24 * 60 * 60 * 1000
-        }
-        activities.filter { it.timestamp >= from }
-    }
-
-    val chartDays = remember(selectedPeriod, locale) {
+    val buckets = remember(activities, selectedPeriod, locale) {
         when (selectedPeriod) {
-            StatsPeriod.WEEK         -> getLastNDays(7, locale)
-            StatsPeriod.MONTH        -> getLastNDays(30, locale)
-            StatsPeriod.THREE_MONTHS -> getLastNDays(90, locale)
+            StatsPeriod.WEEK         -> buildDailyBuckets(activities, 7, locale)
+            StatsPeriod.MONTH        -> buildDailyBuckets(activities, 30, locale)
+            StatsPeriod.THREE_MONTHS -> buildWeeklyBuckets(activities, 13, locale)
         }
     }
 
-    val statsData = remember(filteredActivities, units, chartDays) {
-        val labels = chartDays.map { it.third }
-        val entries = chartDays.mapIndexed { index, triple ->
-            val dailySum = filteredActivities
-                .filter { it.timestamp in triple.first..triple.second }
-                .sumOf { it.distanceMeters.toDouble() } / divisor
-            entryOf(index, dailySum.toFloat())
-        }
-        Pair(labels, entries)
+    val isAggregated = selectedPeriod == StatsPeriod.THREE_MONTHS
+
+    val filteredActivities = remember(buckets) {
+        buckets.flatMap { it.activities }
     }
 
-    val modelProducerBar = remember { ChartEntryModelProducer(statsData.second) }
-
-    LaunchedEffect(statsData.second) {
-        modelProducerBar.setEntries(statsData.second)
-    }
-
-    var selectedBarIndex by remember(selectedPeriod) { mutableStateOf<Int?>(null) }
-
-    val selectedDayLabel = selectedBarIndex?.let { statsData.first.getOrNull(it) }
-    val selectedDayValue = selectedBarIndex?.let { statsData.second.getOrNull(it)?.y }
-    val selectedDayActivities = remember(selectedBarIndex, filteredActivities, chartDays) {
-        selectedBarIndex?.let { idx ->
-            val (start, end, _) = chartDays[idx]
-            filteredActivities.filter { it.timestamp in start..end }
-        }
-    }
+    var selectedIndex by remember(selectedPeriod) { mutableStateOf<Int?>(null) }
+    val selectedBucket = selectedIndex?.let { buckets.getOrNull(it) }
 
     val totalDistance        = filteredActivities.sumOf { it.distanceMeters.toDouble() } / divisor
     val totalDurationSeconds = filteredActivities.sumOf { it.durationSeconds }
     val totalCalories        = filteredActivities.sumOf { it.caloriesBurned }
     val primaryColor         = MaterialTheme.colorScheme.primary
 
-    val barThickness = when (selectedPeriod) {
-        StatsPeriod.WEEK         -> 12f
-        StatsPeriod.MONTH        -> 3f
-        StatsPeriod.THREE_MONTHS -> 1.5f
+    val barWidth: Dp = when (selectedPeriod) {
+        StatsPeriod.WEEK         -> 32.dp
+        StatsPeriod.MONTH        -> 14.dp
+        StatsPeriod.THREE_MONTHS -> 26.dp
     }
-
-    val barSpacing = when (selectedPeriod) {
-        StatsPeriod.WEEK         -> 4.dp
-        StatsPeriod.MONTH        -> 1.dp
-        StatsPeriod.THREE_MONTHS -> 0.5.dp
+    val barSpacing: Dp = when (selectedPeriod) {
+        StatsPeriod.WEEK         -> 18.dp
+        StatsPeriod.MONTH        -> 8.dp
+        StatsPeriod.THREE_MONTHS -> 14.dp
+    }
+    val labelEvery = when (selectedPeriod) {
+        StatsPeriod.WEEK         -> 1
+        StatsPeriod.MONTH        -> 5
+        StatsPeriod.THREE_MONTHS -> 1
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .statusBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
@@ -213,13 +197,26 @@ fun StatisticsScreen(viewModel: ActivityViewModel) {
         }
 
         // Grafikon naslov
-        StatSectionTitle(
-            when (selectedPeriod) {
-                StatsPeriod.WEEK         -> stringResource(R.string.stats_last7days)
-                StatsPeriod.MONTH        -> stringResource(R.string.stats_last30days)
-                StatsPeriod.THREE_MONTHS -> stringResource(R.string.stats_last90days)
+        Row(
+            modifier              = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment     = Alignment.CenterVertically
+        ) {
+            StatSectionTitle(
+                when (selectedPeriod) {
+                    StatsPeriod.WEEK         -> stringResource(R.string.stats_last7days)
+                    StatsPeriod.MONTH        -> stringResource(R.string.stats_last30days)
+                    StatsPeriod.THREE_MONTHS -> stringResource(R.string.stats_last90days)
+                }
+            )
+            if (isAggregated) {
+                Text(
+                    if (lang == "sr") "po sedmicama" else "by week",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-        )
+        }
 
         if (filteredActivities.isEmpty()) {
             EmptyChart()
@@ -233,56 +230,19 @@ fun StatisticsScreen(viewModel: ActivityViewModel) {
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp)
-                    ) {
-                        Chart(
-                            chart = columnChart(
-                                columns = listOf(
-                                    LineComponent(
-                                        color       = primaryColor.hashCode(),
-                                        thicknessDp = barThickness,
-                                        shape       = Shapes.roundedCornerShape(allPercent = 40)
-                                    )
-                                ),
-                                spacing = barSpacing
-                            ),
-                            chartModelProducer = modelProducerBar,
-                            startAxis          = rememberStartAxis(),
-                            bottomAxis         = rememberBottomAxis(
-                                valueFormatter = { value, _ ->
-                                    when (selectedPeriod) {
-                                        StatsPeriod.WEEK -> statsData.first.getOrNull(value.toInt()) ?: ""
-                                        else -> if (value.toInt() % 7 == 0)
-                                            statsData.first.getOrNull(value.toInt()) ?: ""
-                                        else ""
-                                    }
-                                }
-                            ),
-                            modifier = Modifier.fillMaxSize()
-                        )
+                    DistanceBarChart(
+                        buckets       = buckets,
+                        divisor       = divisor,
+                        barWidth      = barWidth,
+                        barSpacing    = barSpacing,
+                        labelEvery    = labelEvery,
+                        selectedIndex = selectedIndex,
+                        onSelect      = { idx -> selectedIndex = if (selectedIndex == idx) null else idx },
+                        barColor      = primaryColor
+                    )
 
-                        // Click overlay
-                        Row(modifier = Modifier.fillMaxSize()) {
-                            Spacer(modifier = Modifier.width(48.dp))
-                            statsData.first.forEachIndexed { index, _ ->
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxHeight()
-                                        .clickable {
-                                            selectedBarIndex =
-                                                if (selectedBarIndex == index) null else index
-                                        }
-                                )
-                            }
-                        }
-                    }
-
-                    // Detalji odabranog dana
-                    if (selectedBarIndex != null && selectedDayActivities != null) {
+                    // Detalji (dan ili sedmica)
+                    if (selectedBucket != null) {
                         Spacer(modifier = Modifier.height(12.dp))
                         Card(
                             modifier = Modifier.fillMaxWidth(),
@@ -301,19 +261,21 @@ fun StatisticsScreen(viewModel: ActivityViewModel) {
                                     verticalAlignment     = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        selectedDayLabel ?: "",
+                                        if (isAggregated)
+                                            (if (lang == "sr") "Sedmica od ${selectedBucket.label}" else "Week of ${selectedBucket.label}")
+                                        else selectedBucket.label,
                                         style      = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold
                                     )
                                     Text(
-                                        "%.2f $unitLabel".format(selectedDayValue ?: 0f),
+                                        "%.2f $unitLabel".format(selectedBucket.distanceMeters / divisor),
                                         style      = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.ExtraBold,
                                         color      = MaterialTheme.colorScheme.primary
                                     )
                                 }
 
-                                if (selectedDayActivities.isEmpty()) {
+                                if (selectedBucket.activities.isEmpty()) {
                                     Text(
                                         stringResource(R.string.stats_no_activities),
                                         style = MaterialTheme.typography.bodySmall,
@@ -323,7 +285,7 @@ fun StatisticsScreen(viewModel: ActivityViewModel) {
                                     HorizontalDivider(
                                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                                     )
-                                    selectedDayActivities.forEach { activity ->
+                                    selectedBucket.activities.forEach { activity ->
                                         Row(
                                             modifier              = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -352,7 +314,7 @@ fun StatisticsScreen(viewModel: ActivityViewModel) {
                                                     fontWeight = FontWeight.Medium
                                                 )
                                                 Text(
-                                                    formatDate(activity.timestamp).split(" ")[1],
+                                                    formatDate(activity.timestamp),
                                                     style = MaterialTheme.typography.labelSmall,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
@@ -437,8 +399,117 @@ fun StatisticsScreen(viewModel: ActivityViewModel) {
     }
 }
 
-// ── Composable helpers ─────────────────────────────────────────────────────────
+// Bar chart
+@Composable
+fun DistanceBarChart(
+    buckets: List<StatsBucket>,
+    divisor: Float,
+    barWidth: Dp,
+    barSpacing: Dp,
+    labelEvery: Int,
+    selectedIndex: Int?,
+    onSelect: (Int) -> Unit,
+    barColor: Color
+) {
+    val chartHeight = 160.dp
+    val maxValue = remember(buckets) {
+        (buckets.maxOfOrNull { it.distanceMeters } ?: 0f).coerceAtLeast(1f)
+    }
 
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val slot = barWidth + barSpacing
+        val naturalWidth = slot * buckets.size
+        val availableWidth = maxWidth
+        val contentWidth = if (naturalWidth > availableWidth) naturalWidth else availableWidth
+        val scrollState = rememberScrollState()
+
+        Column(
+            modifier = Modifier
+                .horizontalScroll(scrollState)
+                .width(contentWidth)
+                .height(chartHeight + 32.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = if (naturalWidth > availableWidth) Arrangement.Start else Arrangement.SpaceEvenly
+            ) {
+                buckets.forEachIndexed { index, bucket ->
+                    val targetFraction = (bucket.distanceMeters / maxValue).coerceIn(0f, 1f)
+                    val animatedFraction by animateFloatAsState(
+                        targetValue   = targetFraction,
+                        animationSpec = tween(500),
+                        label         = "bar$index"
+                    )
+                    val isSelected = selectedIndex == index
+                    val hasData = bucket.distanceMeters > 0f
+
+                    Box(
+                        modifier = Modifier
+                            .width(slot)
+                            .height(chartHeight)
+                            .clickable(enabled = hasData) { onSelect(index) },
+                        contentAlignment = Alignment.BottomCenter
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(barWidth)
+                                .fillMaxHeight(fraction = if (hasData) animatedFraction.coerceAtLeast(0.03f) else 0.015f)
+                                .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
+                                .background(
+                                    when {
+                                        !hasData   -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f)
+                                        isSelected -> barColor
+                                        else       -> barColor.copy(alpha = 0.45f)
+                                    }
+                                )
+                        )
+                    }
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(MaterialTheme.colorScheme.outlineVariant)
+            )
+
+            // (X OSA)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = if (naturalWidth > availableWidth) Arrangement.Start else Arrangement.SpaceEvenly
+            ) {
+                buckets.forEachIndexed { index, bucket ->
+                    val isSelected = selectedIndex == index
+
+                    Box(
+                        modifier = Modifier.width(slot),
+                        contentAlignment = Alignment.TopCenter
+                    ) {
+                        if (index % labelEvery == 0) {
+                            Text(
+                                text       = bucket.label,
+                                style      = MaterialTheme.typography.labelSmall,
+                                color      = if (isSelected) barColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                maxLines   = 1,
+                                modifier   = Modifier.wrapContentWidth(unbounded = true)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Composable helpers
 @Composable
 fun StatDetailItem(label: String, value: String, icon: ImageVector) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -562,15 +633,13 @@ fun EmptyChart() {
     }
 }
 
-// helpers
-
-fun getLastNDays(n: Int, locale: Locale = Locale.getDefault()): List<Triple<Long, Long, String>> {
-    val result     = mutableListOf<Triple<Long, Long, String>>()
+fun buildDailyBuckets(activities: List<Activity>, days: Int, locale: Locale): List<StatsBucket> {
     val calendar   = Calendar.getInstance()
     val dayFormat  = SimpleDateFormat("EEE", locale)
-    val dateFormat = SimpleDateFormat("dd.MM", locale)
+    val dateFormat = if (days > 7) SimpleDateFormat("d", locale) else SimpleDateFormat("dd.MM", locale)
+    val result     = mutableListOf<StatsBucket>()
 
-    repeat(n) {
+    repeat(days) {
         calendar.set(Calendar.HOUR_OF_DAY, 23)
         calendar.set(Calendar.MINUTE, 59)
         calendar.set(Calendar.SECOND, 59)
@@ -583,14 +652,44 @@ fun getLastNDays(n: Int, locale: Locale = Locale.getDefault()): List<Triple<Long
         calendar.set(Calendar.MILLISECOND, 0)
         val start = calendar.timeInMillis
 
-        val label = if (n <= 7)
+        val label = if (days <= 7) {
             dayFormat.format(calendar.time)
                 .replaceFirstChar { if (it.isLowerCase()) it.titlecase(locale) else it.toString() }
-        else
+        } else {
             dateFormat.format(calendar.time)
+        }
 
-        result.add(Triple(start, end, label))
+        result.add(StatsBucket(start, end, label, activities.filter { it.timestamp in start..end }))
         calendar.add(Calendar.DAY_OF_YEAR, -1)
+    }
+
+    return result.asReversed()
+}
+
+fun buildWeeklyBuckets(activities: List<Activity>, weeks: Int, locale: Locale): List<StatsBucket> {
+    val calendar   = Calendar.getInstance()
+    val dateFormat = SimpleDateFormat("dd.MM", locale)
+    val result     = mutableListOf<StatsBucket>()
+
+    calendar.set(Calendar.HOUR_OF_DAY, 23)
+    calendar.set(Calendar.MINUTE, 59)
+    calendar.set(Calendar.SECOND, 59)
+    calendar.set(Calendar.MILLISECOND, 999)
+
+    repeat(weeks) {
+        val end = calendar.timeInMillis
+
+        val startCal = calendar.clone() as Calendar
+        startCal.add(Calendar.DAY_OF_YEAR, -6)
+        startCal.set(Calendar.HOUR_OF_DAY, 0)
+        startCal.set(Calendar.MINUTE, 0)
+        startCal.set(Calendar.SECOND, 0)
+        startCal.set(Calendar.MILLISECOND, 0)
+        val start = startCal.timeInMillis
+
+        val label = dateFormat.format(Date(start))
+        result.add(StatsBucket(start, end, label, activities.filter { it.timestamp in start..end }))
+        calendar.add(Calendar.DAY_OF_YEAR, -7)
     }
 
     return result.asReversed()

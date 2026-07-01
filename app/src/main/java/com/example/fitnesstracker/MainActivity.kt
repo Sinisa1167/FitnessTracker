@@ -3,9 +3,13 @@ package com.example.fitnesstracker
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -53,6 +57,15 @@ class MainActivity : ComponentActivity() {
 
         super.onCreate(savedInstanceState)
 
+        // Pravi edge-to-edge prikaz: sistem prestaje sam da iscrtava/animira status bar
+        // pozadinu, pa nema više "crno -> mapa -> crno" treperenja dok se mapa/insetsi
+        // stabilizuju. Status/navigation bar postaju transparentni i sadržaj iscrtavamo
+        // ispod njih sam (preko windowInsetsPadding tamo gdje treba).
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+        )
+
         lifecycleScope.launch {
             val initialLang = PreferencesManager(applicationContext).language.first()
             applyLocale(initialLang)
@@ -95,9 +108,15 @@ class MainActivity : ComponentActivity() {
                         val isTrackingActive = currentDestination?.hierarchy?.any { it.route == "tracking" } == true
 
                         Scaffold(
+                            // Ne dozvoljavamo Scaffold-u da sam rezerviše system bar insets —
+                            // to je izazivalo kašnjenje/re-layout (innerPadding stigne par
+                            // frejmova nakon insets-a) što je treperilo MapView na detail
+                            // ekranu. Svaki ekran sad sam upravlja svojim statusBarsPadding /
+                            // navigationBarsPadding po potrebi.
+                            contentWindowInsets = WindowInsets(0, 0, 0, 0),
                             bottomBar = {
                                 if (showBottomBar) {
-                                    Box {
+                                    Box(modifier = Modifier.navigationBarsPadding()) {
                                         NavigationBar {
                                             NavigationBarItem(
                                                 icon     = { Icon(Icons.Default.Home, null) },
